@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.jsx';
+import { RepositoryProvider } from './context/RepositoryContext.jsx';
 import ProtectedRoute from './components/Auth/ProtectedRoute.jsx';
 import ComingSoon from './components/Common/ComingSoon.jsx';
 import Landing from './pages/Landing.jsx';
@@ -8,12 +9,20 @@ import Login from './pages/Login.jsx';
 import AuthCallback from './pages/AuthCallback.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Settings from './pages/Settings.jsx';
+import Repositories from './pages/Repositories.jsx';
+import Architecture from './pages/Architecture.jsx';
+import Chat from './pages/Chat.jsx';
+import Documentation from './pages/Documentation.jsx';
+import ProjectManager from './pages/ProjectManager.jsx';
+import Search from './pages/Search.jsx';
+import Playground from './pages/Playground.jsx';
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
+      <RepositoryProvider>
+        <Router>
+          <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -30,7 +39,7 @@ function App() {
             path="/repositories"
             element={
               <ProtectedRoute>
-                <ComingSoon title="Repositories" subtitle="Manage and explore your GitHub repositories" phase="Phase 2" />
+                <Repositories />
               </ProtectedRoute>
             }
           />
@@ -38,7 +47,7 @@ function App() {
             path="/chat"
             element={
               <ProtectedRoute>
-                <ComingSoon title="AI Chat" subtitle="Ask questions about your codebase" phase="Phase 3" />
+                <Chat />
               </ProtectedRoute>
             }
           />
@@ -46,7 +55,7 @@ function App() {
             path="/documentation"
             element={
               <ProtectedRoute>
-                <ComingSoon title="Documentation" subtitle="Auto-generated project documentation" phase="Phase 4" />
+                <Documentation />
               </ProtectedRoute>
             }
           />
@@ -54,7 +63,7 @@ function App() {
             path="/architecture"
             element={
               <ProtectedRoute>
-                <ComingSoon title="Architecture" subtitle="Visual diagrams and flow charts" phase="Phase 5" />
+                <Architecture />
               </ProtectedRoute>
             }
           />
@@ -62,7 +71,7 @@ function App() {
             path="/project-manager"
             element={
               <ProtectedRoute>
-                <ComingSoon title="Project Manager" subtitle="Issues, PRs, and sprint planning" phase="Phase 6" />
+                <ProjectManager />
               </ProtectedRoute>
             }
           />
@@ -70,7 +79,15 @@ function App() {
             path="/search"
             element={
               <ProtectedRoute>
-                <ComingSoon title="Search" subtitle="Semantic code search across repos" phase="Phase 3" />
+                <Search />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/playground"
+            element={
+              <ProtectedRoute>
+                <Playground />
               </ProtectedRoute>
             }
           />
@@ -86,6 +103,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
+     </RepositoryProvider>
     </AuthProvider>
   );
 }

@@ -5,6 +5,10 @@ import env from './config/env.js';
 import requestLogger from './middleware/logger.middleware.js';
 import errorHandler from './middleware/error.middleware.js';
 import authRoutes from './routes/auth.routes.js';
+import githubRoutes from './routes/github.routes.js';
+import repositoryRoutes from './routes/repository.routes.js';
+import chatRoutes from './routes/chat.routes.js';
+import pmRoutes from './routes/pm.routes.js';
 
 const app = express();
 
@@ -32,6 +36,10 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/github', githubRoutes);
+app.use('/api/repositories', repositoryRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/pm', pmRoutes);
 
 app.use((req, res, next) => {
   res.status(404);

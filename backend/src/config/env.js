@@ -47,7 +47,7 @@ export default {
   jwtSecret: process.env.JWT_SECRET || 'repomind_secret_development_key_123456',
   mongoUri: process.env.MONGODB_URL || process.env.MONGO_URI || '',
   pineconeApiKey: process.env.PINECONE_API_KEY || '',
-  pineconeIndex: process.env.PINECONE_INDEX || 'repomind-index',
+  pineconeIndex: process.env.PINECONE_INDEX || 'repo-mind',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   githubClientId: process.env.GITHUB_CLIENT_ID || '',
   githubClientSecret: process.env.GITHUB_CLIENT_SECRET || '',

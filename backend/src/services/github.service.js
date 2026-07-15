@@ -58,3 +58,35 @@ export const getPrimaryEmail = (emails = []) => {
   const verified = emails.find((entry) => entry.verified);
   return verified?.email || emails[0]?.email || '';
 };
+
+export const fetchUserRepos = async (accessToken) => {
+  const { data } = await githubApi.get('/user/repos?per_page=100&sort=updated', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  return data;
+};
+
+export const fetchRepoTree = async (owner, repo, branch, accessToken) => {
+  const { data } = await githubApi.get(`/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  return data.tree || [];
+};
+
+export const fetchFileContent = async (owner, repo, fileSha, accessToken) => {
+  const { data } = await githubApi.get(`/repos/${owner}/${repo}/git/blobs/${fileSha}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (data.encoding === 'base64') {
+    return Buffer.from(data.content, 'base64').toString('utf8');
+  }
+  return data.content || '';
+};
+

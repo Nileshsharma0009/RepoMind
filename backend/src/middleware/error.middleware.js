@@ -1,7 +1,9 @@
+import logger from '../config/logger.js';
+
 // Error handling middleware
 export const errorHandler = (err, req, res, next) => {
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-  console.error(`[ERROR] ${err.stack || err.message}`);
+  logger.error(err);
   
   res.status(statusCode).json({
     message: err.message,

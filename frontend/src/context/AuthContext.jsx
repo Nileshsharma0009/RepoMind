@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [oauthConfigured, setOauthConfigured] = useState(false);
+  const [theme, setTheme] = useState(localStorage.getItem('repomind_theme') || 'purple');
 
   const fetchUser = useCallback(async () => {
     const token = localStorage.getItem('token');
@@ -28,12 +29,24 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('theme-purple', 'theme-emerald', 'theme-cyberpunk', 'theme-ocean', 'theme-crimson');
+    root.classList.add(`theme-${theme}`);
+  }, [theme]);
+
+  const changeTheme = (newTheme) => {
+    setTheme(newTheme);
+    localStorage.setItem('repomind_theme', newTheme);
+  };
+
+  useEffect(() => {
     authService.getAuthStatus()
       .then((res) => setOauthConfigured(res.data.githubOAuthConfigured))
       .catch(() => setOauthConfigured(false));
 
     fetchUser();
   }, [fetchUser]);
+
 
   const loginWithGitHub = () => {
     authService.getGitHubLoginUrl();
@@ -65,6 +78,8 @@ export function AuthProvider({ children }) {
         handleAuthCallback,
         logout,
         refreshUser: fetchUser,
+        theme,
+        changeTheme,
       }}
     >
       {children}

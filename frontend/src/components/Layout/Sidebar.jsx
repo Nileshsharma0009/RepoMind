@@ -11,8 +11,11 @@ import {
   Settings,
   LogOut,
   Brain,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { useRepository } from '../../context/RepositoryContext.jsx';
+import ThemeSelector from '../Common/ThemeSelector.jsx';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -22,11 +25,13 @@ const navItems = [
   { to: '/architecture', icon: Network, label: 'Architecture' },
   { to: '/project-manager', icon: Kanban, label: 'Project Manager' },
   { to: '/search', icon: Search, label: 'Search' },
+  { to: '/playground', icon: Sparkles, label: 'AI Playground' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const { connectedRepos, activeRepo, selectRepo } = useRepository();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -46,6 +51,37 @@ export default function Sidebar() {
             <p className="text-[10px] text-neutral-500 font-mono uppercase tracking-wider">AI Memory</p>
           </div>
         </div>
+      </div>
+
+      {/* Repository Switcher */}
+      <div className="px-4 py-3 border-b border-neutral-800/60 bg-neutral-900/10">
+        <label className="text-[9px] font-mono text-neutral-500 uppercase tracking-wider block mb-1">
+          Active Repository
+        </label>
+        {connectedRepos.length === 0 ? (
+          <button
+            onClick={() => navigate('/repositories')}
+            className="w-full text-left px-2.5 py-1.5 bg-neutral-900/40 hover:bg-neutral-900 border border-neutral-800/40 rounded-lg text-xs text-neutral-400 flex items-center justify-between transition-colors"
+          >
+            <span className="truncate">No connected repos</span>
+            <span className="text-[10px] text-primary font-semibold font-sans shrink-0 ml-1">+ Add</span>
+          </button>
+        ) : (
+          <select
+            value={activeRepo?._id || ''}
+            onChange={(e) => selectRepo(e.target.value)}
+            className="w-full px-2 py-1.5 bg-neutral-900/40 border border-neutral-800/40 rounded-lg text-xs text-neutral-200 outline-none focus:border-primary/50 transition-colors cursor-pointer"
+          >
+            <option value="" className="bg-neutral-950 text-neutral-400">
+              Select repository...
+            </option>
+            {connectedRepos.map((repo) => (
+              <option key={repo._id} value={repo._id} className="bg-neutral-950 text-white">
+                {repo.fullName}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <nav className="flex-1 p-3 space-y-1">
@@ -68,8 +104,9 @@ export default function Sidebar() {
       </nav>
 
       {user && (
-        <div className="p-4 border-t border-neutral-800/60">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="p-4 border-t border-neutral-800/60 space-y-4">
+          <ThemeSelector />
+          <div className="flex items-center gap-3">
             <img
               src={user.avatar}
               alt={user.username}
