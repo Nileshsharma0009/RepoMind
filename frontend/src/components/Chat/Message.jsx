@@ -131,19 +131,18 @@ export default function Message({ message, onReferenceClick }) {
           </code>
         );
       }
-      // File link in format: [filename](file:///...)
-      else if (matchText.startsWith('[') && matchText.includes('](file:///')) {
+      // File link in format: [filename](file:///...) or [filename](repomind:///...)
+      else if (matchText.startsWith('[') && (matchText.includes('](file:///') || matchText.includes('](repomind:///'))) {
         const titleMatch = /\[(.*?)\]/.exec(matchText);
         const urlMatch = /\((.*?)\)/.exec(matchText);
         const title = titleMatch ? titleMatch[1] : 'File';
         const url = urlMatch ? urlMatch[1] : '';
 
-        // Extract filePath and line from file:///c:/Users/.../filepath#Lline
-        const pathPart = url.replace('file:///', '');
+        // Extract filePath and line from repomind:///filepath#Lline or file:///...
+        const pathPart = url.replace('file:///', '').replace('repomind:///', '');
         const [filePathPart, linePart] = pathPart.split('#L');
         
-        // Clean absolute path to workspace relative path to allow Monaco loading
-        // We know workspace path is: c:/Users/sharm/OneDrive/Desktop/RepoMind/
+        // Clean absolute path to workspace relative path
         const relativePath = filePathPart.replace('c:/Users/sharm/OneDrive/Desktop/RepoMind/', '');
         const line = linePart ? parseInt(linePart, 10) : 1;
 

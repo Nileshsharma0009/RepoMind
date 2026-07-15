@@ -56,46 +56,29 @@ const searchLocalChunks = async (repositoryId, queryText, limit = 8) => {
 export const generateChatAnswer = async (repositoryId, message, chatHistory = []) => {
   console.log(`[AI-CHAT] Processing query for Repo ${repositoryId}: "${message}"`);
 
+  let matchedChunks = [];
+  const references = [];
+  let repo;
+
   try {
-    const repo = await Repository.findById(repositoryId);
+    repo = await Repository.findById(repositoryId);
     if (!repo) {
       throw new Error('Repository not found.');
     }
 
-    let matchedChunks = [];
-
-    // Try vector-based RAG first
-    const embedding = await getEmbedding(message);
-    if (embedding && embedding.length > 0) {
-      console.log('[AI-CHAT] Performing vector search query in Pinecone...');
-      const matches = await queryVectors(embedding, String(repositoryId), 6);
-      if (matches && matches.length > 0) {
-        matchedChunks = matches.map((m) => ({
-          filePath: m.metadata.filePath,
-          startLine: m.metadata.startLine,
-          endLine: m.metadata.endLine,
-          content: m.metadata.content,
-        }));
-      }
-    }
-
-    // Fall back to keyword match in MongoDB if Pinecone is inactive or returns nothing
-    if (matchedChunks.length === 0) {
-      console.log('[AI-CHAT] Falling back to MongoDB keyword-regex indexing search...');
-      const localMatches = await searchLocalChunks(repositoryId, message, 6);
-      matchedChunks = localMatches.map((m) => ({
-        filePath: m.filePath,
-        startLine: m.startLine,
-        endLine: m.endLine,
-        content: m.content,
-      }));
-    }
+    console.log('[AI-CHAT] Querying codebase segments directly via local MongoDB search...');
+    const localMatches = await searchLocalChunks(repositoryId, message, 6);
+    matchedChunks = localMatches.map((m) => ({
+      filePath: m.filePath,
+      startLine: m.startLine,
+      endLine: m.endLine,
+      content: m.content,
+    }));
 
     console.log(`[AI-CHAT] Retrieved ${matchedChunks.length} matching code blocks.`);
 
     // 1. Build prompt context
     let contextStr = '';
-    const references = [];
 
     matchedChunks.forEach((chunk, idx) => {
       contextStr += `\n---\nSnippet #${idx + 1}\nFile: ${chunk.filePath} (Lines ${chunk.startLine}-${chunk.endLine})\n${chunk.content}\n---\n`;
@@ -113,7 +96,7 @@ export const generateChatAnswer = async (repositoryId, message, chatHistory = []
     if (!genAI) {
       // Mock/Instruction responses for setup
       const localMatchesList = references
-        .map((r) => `- [${path.basename(r.filePath)}: L${r.startLine}-${r.endLine}](file:///${repo.url}/blob/main/${r.filePath}#L${r.startLine})`)
+        .map((r) => `- [${path.basename(r.filePath)}: L${r.startLine}-${r.endLine}](repomind:///${r.filePath}#L${r.startLine})`)
         .join('\n');
 
       return {
@@ -138,8 +121,7 @@ ${contextStr}
 
 Constraints:
 - Answer the user's questions accurately using the context.
-- ALWAYS cite files and lines in your answer using markdown links with absolute path or format e.g. \`[app.js:L10-35](file:///c:/path/to/app.js#L10-L35)\` or relative link, but MUST follow \`[filename](file:///c:/Users/sharm/OneDrive/Desktop/RepoMind/[filepath]#L[line])\` format.
-  Wait, the root workspace is "c:/Users/sharm/OneDrive/Desktop/RepoMind/". The full path of files should be \`file:///c:/Users/sharm/OneDrive/Desktop/RepoMind/[filepath]#L[line]\`. E.g., \`[app.js:L20](file:///c:/Users/sharm/OneDrive/Desktop/RepoMind/backend/src/app.js#L20)\`.
+- ALWAYS cite files and lines in your answer using markdown links following the format \`[filename:Lline](repomind:///filepath#Lline)\`. E.g., \`[app.js:L20](repomind:///backend/src/app.js#L20)\`.
 - If the question is not about the repository or the files do not contain the answer, say "I cannot find details in the connected files" and suggest checking other files.`;
 
     // Map history to Gemini format
@@ -197,7 +179,23 @@ Constraints:
     };
   } catch (err) {
     console.error('[AI-CHAT] Chat generation failed:', err.message);
-    throw err;
+    const localMatchesList = references
+      .map((r) => `- [${r.filePath.split('/').pop()}: L${r.startLine}-${r.endLine}](repomind:///${r.filePath}#L${r.startLine})`)
+      .join('\n');
+
+    return {
+      answer: `### ⚠️ Gemini API Resolution Failure
+The chat engine encountered an error generating an AI response: **${err.message}**
+
+**Diagnostics Guide**:
+1. Confirm that your \`GEMINI_API_KEY\` is loaded and valid in your \`.env\` file.
+2. Verify that the **Generative Language API** is enabled in your Google AI Studio or Google Cloud Console.
+
+**Offline Local Code Matches (${references.length})**:
+Despite the API offline status, here are code sections from this codebase related to your question:
+${localMatchesList || '_No keyword occurrences matched in local files._'}`,
+      references,
+    };
   }
 };
 

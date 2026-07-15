@@ -118,7 +118,7 @@ export const harvestTodos = async (req, res, next) => {
     // Find chunks containing TODO or FIXME (case insensitive)
     const chunks = await RepositoryIndex.find({
       repositoryId: repository._id,
-      content: { $regex: /\b(TODO|FIXME)\b/i },
+      content: { $regex: '\\b(TODO|FIXME)\\b', $options: 'i' },
     });
 
     const todos = [];
@@ -170,10 +170,10 @@ export const runAgentAnalysis = async (req, res, next) => {
   try {
     const { repositoryId, filePath, agentType } = req.body;
 
-    if (!repositoryId || !filePath || !agentType) {
+    if (!repositoryId || !agentType) {
       return res.status(400).json({
         status: 'error',
-        message: 'Missing repositoryId, filePath, or agentType parameter.',
+        message: 'Missing repositoryId or agentType parameter.',
       });
     }
 
@@ -185,36 +185,77 @@ export const runAgentAnalysis = async (req, res, next) => {
       });
     }
 
-    const file = repository.parsedData?.files?.find((f) => f.path === filePath);
-    if (!file || !file.sha) {
-      return res.status(404).json({
-        status: 'error',
-        message: `File content not indexed: ${filePath}`,
-      });
-    }
+    // Build system-wide context layout
+    const filesList = repository.parsedData?.files || [];
+    const routes = filesList.filter(f => f.type === 'route').map(f => f.path);
+    const controllers = filesList.filter(f => f.type === 'controller').map(f => f.path);
+    const services = filesList.filter(f => f.type === 'service').map(f => f.path);
+    const models = filesList.filter(f => f.type === 'model').map(f => f.path);
 
-    const user = await User.findById(req.user._id).select('+githubAccessToken');
-    const content = await fetchFileContent(repository.owner, repository.name, file.sha, user.githubAccessToken);
+    const systemLayout = `System Context Layout:
+- Repository: ${repository.fullName}
+- Description: ${repository.description || 'No description.'}
+- Default Branch: ${repository.defaultBranch}
+- Route endpoints: ${routes.slice(0, 8).join(', ')} ${routes.length > 8 ? `(+${routes.length - 8} more)` : ''}
+- Controllers: ${controllers.slice(0, 8).join(', ')} ${controllers.length > 8 ? `(+${controllers.length - 8} more)` : ''}
+- Services: ${services.slice(0, 8).join(', ')} ${services.length > 8 ? `(+${services.length - 8} more)` : ''}
+- Database Models: ${models.slice(0, 8).join(', ')} ${models.length > 8 ? `(+${models.length - 8} more)` : ''}`;
 
     let prompt = '';
-    switch (agentType) {
-      case 'reviewer':
-        prompt = `Act as a senior software reviewer. Inspect the following file content and write a detailed codebase review highlighting bugs, style guidelines issues, and structural design pattern suggestions:\n\nFile: ${filePath}\n\nCode Content:\n\`\`\`\n${content}\n\`\`\``;
-        break;
-      case 'tester':
-        prompt = `Act as an automated QA engineer. Write robust unit tests covering edge cases and main pathways for this code block:\n\nFile: ${filePath}\n\nCode Content:\n\`\`\`\n${content}\n\`\`\``;
-        break;
-      case 'security':
-        prompt = `Act as an application security analyst. Audit the following file content for security issues like credential exposure, cross-site scriptings, database injections, scope pollution, or weak cryptographic logic:\n\nFile: ${filePath}\n\nCode Content:\n\`\`\`\n${content}\n\`\`\``;
-        break;
-      case 'refactor':
-        prompt = `Act as a software optimization expert. Refactor the following module to make it cleaner, more readable, and performant. Keep original exports and functionalities, but replace redundant blocks with clean syntax, explaining your modifications:\n\nFile: ${filePath}\n\nCode Content:\n\`\`\`\n${content}\n\`\`\``;
-        break;
-      case 'bug':
-        prompt = `Act as an expert debugger. Analyze this file content to trace possible runtime exceptions, unhandled promises, reference errors, memory leaks, or type mismatch bugs. Suggest exact fixes:\n\nFile: ${filePath}\n\nCode Content:\n\`\`\`\n${content}\n\`\`\``;
-        break;
-      default:
-        prompt = `Analyze the file ${filePath} for software quality improvements.`;
+
+    if (filePath) {
+      // 1. File-level audit (with system-wide layout context)
+      const file = repository.parsedData?.files?.find((f) => f.path === filePath);
+      if (!file || !file.sha) {
+        return res.status(404).json({
+          status: 'error',
+          message: `File content not indexed: ${filePath}`,
+        });
+      }
+
+      const user = await User.findById(req.user._id).select('+githubAccessToken');
+      const content = await fetchFileContent(repository.owner, repository.name, file.sha, user.githubAccessToken);
+
+      switch (agentType) {
+        case 'reviewer':
+          prompt = `Act as a senior software reviewer. Audit this file with the system layout context in mind. Detail bugs, coding practices, and design pattern improvements relative to other modules:\n\n${systemLayout}\n\nTarget File: ${filePath}\n\nContent:\n\`\`\`\n${content}\n\`\`\``;
+          break;
+        case 'tester':
+          prompt = `Act as a QA engineer. Generate Jest unit tests for this file, keeping exports and relationships defined in layout context in mind:\n\n${systemLayout}\n\nTarget File: ${filePath}\n\nContent:\n\`\`\`\n${content}\n\`\`\``;
+          break;
+        case 'security':
+          prompt = `Act as a security auditor. Inspect this file for vulnerabilities like injections, hardcoded keys, scope pollution, or missing auth tokens, in the context of the wider system:\n\n${systemLayout}\n\nTarget File: ${filePath}\n\nContent:\n\`\`\`\n${content}\n\`\`\``;
+          break;
+        case 'refactor':
+          prompt = `Act as an optimization expert. Refactor this file for better performance and modularity, explaining modifications relative to system layout dependencies:\n\n${systemLayout}\n\nTarget File: ${filePath}\n\nContent:\n\`\`\`\n${content}\n\`\`\``;
+          break;
+        case 'bug':
+          prompt = `Act as an expert debugger. Locate runtime errors, type mismatch triggers, unhandled database promises, or leaks in this file:\n\n${systemLayout}\n\nTarget File: ${filePath}\n\nContent:\n\`\`\`\n${content}\n\`\`\``;
+          break;
+        default:
+          prompt = `Analyze this file in the context of the system:\n\n${systemLayout}\n\nTarget File: ${filePath}\n\nContent:\n\`\`\`\n${content}\n\`\`\``;
+      }
+    } else {
+      // 2. Global Repository-level audit (no file selected)
+      switch (agentType) {
+        case 'reviewer':
+          prompt = `Act as a principal codebase architect. Audit the entire project structure and directory splits, providing suggestions for architectural improvements:\n\n${systemLayout}`;
+          break;
+        case 'tester':
+          prompt = `Act as a QA planner. Generate a comprehensive unit testing coverage matrix strategy plan listing which routes, controllers, and models need Jest unit tests first:\n\n${systemLayout}`;
+          break;
+        case 'security':
+          prompt = `Act as a chief security officer. Audit the codebase directory layout for global architectural vulnerabilities, insecure setups, or lack of authorization controllers:\n\n${systemLayout}`;
+          break;
+        case 'refactor':
+          prompt = `Act as a clean code advocate. Recommend refactoring guidelines, directory splits, and modular abstractions for this project layout:\n\n${systemLayout}`;
+          break;
+        case 'bug':
+          prompt = `Act as a debug investigator. Analyze the directory mapping for missing configurations, logic leak vectors, or setup risks:\n\n${systemLayout}`;
+          break;
+        default:
+          prompt = `Provide a global repository architecture report:\n\n${systemLayout}`;
+      }
     }
 
     const genAI = getGenAI();
@@ -261,9 +302,15 @@ Ready to run analysis as soon as keys are configured.`,
     });
   } catch (error) {
     console.error('[PM CONTROLLER] Agent run failed:', error.message);
-    res.status(500).json({
-      status: 'error',
-      message: 'AI Agent failed to execute. ' + error.message,
+    res.status(200).json({
+      status: 'success',
+      result: `### ⚠️ AI Agent Execution Failed
+The agent encountered a configuration or API error: **${error.message}**
+
+**Troubleshooting Checklist**:
+1. Check that the \`GEMINI_API_KEY\` in your backend \`.env\` file is correct.
+2. Confirm the **Generative Language API** is enabled for this API key in Google Cloud Console / Google AI Studio.
+3. If this is a free key, make sure you are not exceeding rate limits (15 RPM).`,
     });
   }
 };

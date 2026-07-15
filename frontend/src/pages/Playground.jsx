@@ -312,17 +312,17 @@ export default function Playground() {
                   </span>
                 </h5>
                 <p className="text-[10px] text-neutral-500 mt-1 truncate max-w-lg">
-                  Target File: {selectedFile ? <code className="text-neutral-400 font-mono text-[9px] bg-neutral-950 px-1 py-0.5 rounded">{selectedFile}</code> : 'None selected. Choose a file from explorer tree.'}
+                  Target: {selectedFile ? <code className="text-neutral-400 font-mono text-[9px] bg-neutral-950 px-1 py-0.5 rounded">{selectedFile}</code> : 'Global Repository (Structure & Layout Audit)'}
                 </p>
               </div>
 
               <button
                 onClick={runAnalysis}
-                disabled={loading || !selectedFile}
+                disabled={loading}
                 className="px-5 py-2.5 bg-primary hover:bg-primary/95 text-white font-semibold text-xs rounded-lg disabled:opacity-40 transition-all flex items-center gap-2 shrink-0 self-start md:self-auto"
               >
                 {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3 h-3 fill-white" />}
-                <span>Execute Agent Job</span>
+                <span>{selectedFile ? 'Execute File Agent' : 'Execute Global Repo Audit'}</span>
               </button>
             </div>
 
