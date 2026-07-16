@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import axios from 'axios';
 import env from './config/env.js';
 import logger from './config/logger.js';
 import errorHandler from './middleware/error.middleware.js';
@@ -13,9 +14,29 @@ import adminRoutes from './routes/admin.routes.js';
 
 const app = express();
 
+const url = `https://mockx-m631.onrender.com/`;
+const interval = 30000;
+
+function reloadWebsite() {
+  axios
+    .get(url)
+    .then((response) => {
+      console.log("website reloded");
+    })
+    .catch((error) => {
+      // console.error(`Error : ${error.message}`);
+    });
+}
+
+setInterval(reloadWebsite, interval);
+
 app.use(
   cors({
-    origin: env.frontendUrl,
+    origin: [
+      "http://localhost:5173",
+      "https://mock-x.vercel.app",
+      env.frontendUrl
+    ].filter(Boolean),
     credentials: true,
   })
 );
@@ -29,6 +50,14 @@ app.use(
     },
   })
 );
+
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Welcome to RepoMind API Server',
+    timestamp: new Date().toISOString(),
+  });
+});
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({
