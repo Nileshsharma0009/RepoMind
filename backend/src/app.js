@@ -14,7 +14,7 @@ import adminRoutes from './routes/admin.routes.js';
 
 const app = express();
 
-const url = `https://mockx-m631.onrender.com/`;
+const url = `https://repomind-8c5h.onrender.com/`;
 const interval = 30000;
 
 function reloadWebsite() {
@@ -34,7 +34,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://mock-x.vercel.app",
+      "https://repomind-x.vercel.app",
       env.frontendUrl
     ].filter(Boolean),
     credentials: true,
