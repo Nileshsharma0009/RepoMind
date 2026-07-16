@@ -22,6 +22,43 @@ export default function Chat() {
 
   const messagesEndRef = useRef(null);
 
+  // Resizable layout states
+  const containerRef = useRef(null);
+  const [leftWidth, setLeftWidth] = useState(45); // default split: 45% left
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const percentage = ((e.clientX - rect.left) / rect.width) * 100;
+
+      // Constrain split between 25% and 75% for readability
+      if (percentage >= 25 && percentage <= 75) {
+        setLeftWidth(percentage);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
   // Initialize welcome message when repo selection changes
   useEffect(() => {
     if (activeRepo) {
@@ -185,11 +222,19 @@ Ask me anything, and click on citations to inspect the source code instantly!`,
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 h-[calc(100vh-11rem)] gap-5">
+        <div ref={containerRef} className="flex h-[calc(100vh-11rem)] gap-0 relative select-none">
+          {/* Transparent drag overlay to capture mouse events over Monaco */}
+          {isDragging && (
+            <div className="fixed inset-0 z-[99999] cursor-col-resize" />
+          )}
+
           {/* Left panel: ChatGPT UI */}
-          <div className="glass-panel rounded-xl flex flex-col h-full border border-neutral-800/40 shadow-xl overflow-hidden bg-neutral-950/10">
+          <div 
+            className="glass-panel rounded-xl flex flex-col h-full border border-neutral-850 shadow-xl overflow-hidden bg-neutral-950/10 shrink-0"
+            style={{ width: `${leftWidth}%` }}
+          >
             {/* Header */}
-            <div className="p-4 bg-neutral-950/80 border-b border-neutral-900 flex items-center gap-2">
+            <div className="p-4 bg-neutral-950/80 border-b border-neutral-900 flex items-center gap-2 select-none">
               <MessageSquare className="w-4 h-4 text-primary" />
               <span className="text-xs font-semibold text-white">Discussion logs</span>
             </div>
@@ -208,7 +253,7 @@ Ask me anything, and click on citations to inspect the source code instantly!`,
                 </div>
               )}
               {error && (
-                <div className="p-3 bg-red-950/20 border border-red-900/30 rounded-xl flex items-start gap-2.5 text-xs text-red-400">
+                <div className="p-3 bg-red-955/15 border border-red-955/30 rounded-xl flex items-start gap-2.5 text-xs text-red-400">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <p>{error}</p>
                 </div>
@@ -228,8 +273,19 @@ Ask me anything, and click on citations to inspect the source code instantly!`,
             </div>
           </div>
 
+          {/* Draggable Splitter Divider */}
+          <div
+            onMouseDown={handleMouseDown}
+            className="w-4 hover:w-4 cursor-col-resize flex items-center justify-center group select-none shrink-0 z-10"
+            title="Drag to resize panels"
+          >
+            <div className="w-[3px] h-full bg-neutral-900 hover:bg-purple-600 group-hover:bg-purple-600 transition-colors flex items-center justify-center relative">
+              <div className="w-1.5 h-10 bg-neutral-700 rounded-full group-hover:bg-white transition-colors" />
+            </div>
+          </div>
+
           {/* Right panel: Monaco code visualizer */}
-          <div className="h-full">
+          <div className="flex-1 min-w-0 h-full">
             <CodeExplorer
               openTabs={openTabs}
               activeTab={activeTab}

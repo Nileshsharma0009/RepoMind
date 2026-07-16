@@ -24,6 +24,8 @@ export default function ProjectManager() {
   const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'commits' | 'issues'
   const [todos, setTodos] = useState([]);
   const [commits, setCommits] = useState([]);
+  const [platformCommits, setPlatformCommits] = useState([]);
+  const [commitSource, setCommitSource] = useState('all'); // 'all' | 'platform'
   const [issues, setIssues] = useState([]);
 
   const [loading, setLoading] = useState(false);
@@ -38,6 +40,12 @@ export default function ProjectManager() {
       setIssues(data.issues || []);
     } catch (err) {
       console.warn('Failed to load git stats:', err);
+    }
+    try {
+      const { data } = await api.get(`/repositories/${activeRepo._id}/commits/platform`);
+      setPlatformCommits(data.commits || []);
+    } catch (err) {
+      console.warn('Failed to load platform commits:', err);
     }
   };
 
@@ -161,7 +169,7 @@ export default function ProjectManager() {
               }`}
             >
               <GitCommit className="w-4 h-4" />
-              <span>Git Commits ({commits.length})</span>
+              <span>Commits History ({commits.length + platformCommits.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('issues')}
@@ -242,52 +250,132 @@ export default function ProjectManager() {
               )
             ) : activeTab === 'commits' ? (
               /* Commits Timeline */
-              commits.length === 0 ? (
-                <div className="text-center py-10 bg-neutral-900/5 border border-neutral-900 rounded-xl">
-                  <GitCommit className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-neutral-400">No Commit History Available</p>
-                  <p className="text-[10px] text-neutral-600 mt-1">Unable to crawl branch logs from GitHub API.</p>
+              <div className="space-y-4">
+                <div className="flex gap-2 p-1 bg-neutral-950/40 border border-neutral-850 rounded-xl max-w-sm">
+                  <button
+                    onClick={() => setCommitSource('all')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-[10px] uppercase font-mono tracking-wider font-bold transition-all ${
+                      commitSource === 'all'
+                        ? 'bg-neutral-900 text-white shadow-theme-glow'
+                        : 'text-neutral-500 hover:text-neutral-350'
+                    }`}
+                  >
+                    Repository Branch ({commits.length})
+                  </button>
+                  <button
+                    onClick={() => setCommitSource('platform')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-[10px] uppercase font-mono tracking-wider font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      commitSource === 'platform'
+                        ? 'bg-neutral-900 text-white shadow-theme-glow'
+                        : 'text-neutral-500 hover:text-neutral-350'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                    <span>RepoMind Commits ({platformCommits.length})</span>
+                  </button>
                 </div>
-              ) : (
-                <div className="glass-panel rounded-xl border border-neutral-850 p-4 space-y-4">
-                  {commits.map((commit, i) => (
-                    <div key={commit.sha} className="flex gap-4 items-start last:border-b-0 pb-4 border-b border-neutral-900 last:pb-0">
-                      {/* Avatar */}
-                      <img
-                        src={commit.avatar || 'https://github.com/identicons/dummy.png'}
-                        alt={commit.author}
-                        className="w-8 h-8 rounded-full border border-neutral-800 shrink-0 mt-0.5"
-                      />
-                      <div className="flex-1 min-w-0 text-left">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-1">
-                          <span className="text-xs font-bold text-white truncate max-w-[200px]">
-                            {commit.author}
-                          </span>
-                          <span className="text-[10px] text-neutral-500 font-mono">
-                            {new Date(commit.date).toLocaleString()}
-                          </span>
-                        </div>
-                        <p className="text-xs text-neutral-350 mt-1 leading-relaxed">
-                          {commit.message}
-                        </p>
-                        <div className="mt-2 flex items-center gap-2">
-                          <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[9px] font-mono text-purple-400">
-                            {commit.sha}
-                          </span>
-                          <a
-                            href={commit.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[9px] text-neutral-500 hover:text-primary hover:underline font-semibold"
-                          >
-                            Inspect commit on GitHub
-                          </a>
-                        </div>
-                      </div>
+
+                {commitSource === 'all' ? (
+                  commits.length === 0 ? (
+                    <div className="text-center py-10 bg-neutral-900/5 border border-neutral-900 rounded-xl">
+                      <GitCommit className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-neutral-400">No Commit History Available</p>
+                      <p className="text-[10px] text-neutral-600 mt-1">Unable to crawl branch logs from GitHub API.</p>
                     </div>
-                  ))}
-                </div>
-              )
+                  ) : (
+                    <div className="glass-panel rounded-xl border border-neutral-850 p-4 space-y-4">
+                      {commits.map((commit, i) => (
+                        <div key={commit.sha} className="flex gap-4 items-start last:border-b-0 pb-4 border-b border-neutral-900 last:pb-0">
+                          {/* Avatar */}
+                          <img
+                            src={commit.avatar || 'https://github.com/identicons/dummy.png'}
+                            alt={commit.author}
+                            className="w-8 h-8 rounded-full border border-neutral-800 shrink-0 mt-0.5"
+                          />
+                          <div className="flex-1 min-w-0 text-left">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-1">
+                              <span className="text-xs font-bold text-white truncate max-w-[200px]">
+                                {commit.author}
+                              </span>
+                              <span className="text-[10px] text-neutral-500 font-mono">
+                                {new Date(commit.date).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-xs text-neutral-350 mt-1 leading-relaxed">
+                              {commit.message}
+                            </p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[9px] font-mono text-purple-400">
+                                {commit.sha}
+                              </span>
+                              <a
+                                href={commit.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[9px] text-neutral-500 hover:text-primary hover:underline font-semibold"
+                              >
+                                Inspect commit on GitHub
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  platformCommits.length === 0 ? (
+                    <div className="text-center py-10 bg-neutral-900/5 border border-neutral-900 rounded-xl">
+                      <GitCommit className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-neutral-400">No Platform Commits Found</p>
+                      <p className="text-[10px] text-neutral-600 mt-1">Documentation commits submitted from the platform will show here.</p>
+                    </div>
+                  ) : (
+                    <div className="glass-panel rounded-xl border border-neutral-850 p-4 space-y-4">
+                      {platformCommits.map((commit) => (
+                        <div key={commit._id} className="flex gap-4 items-start last:border-b-0 pb-4 border-b border-neutral-900 last:pb-0">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                            <Sparkles className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0 text-left">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-1">
+                              <span className="text-xs font-bold text-white truncate max-w-[200px]">
+                                {commit.userId?.username || 'RepoMind User'}
+                              </span>
+                              <span className="text-[10px] text-neutral-500 font-mono">
+                                {new Date(commit.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-xs text-neutral-350 mt-1 leading-relaxed">
+                              {commit.commitMessage}
+                            </p>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[9px] font-mono text-purple-400">
+                                {commit.commitSha?.slice(0, 7) || 'unknown'}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded bg-neutral-950/80 border border-neutral-900 text-[9px] font-mono text-neutral-450">
+                                branch: {commit.branch}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded bg-neutral-950/80 border border-neutral-900 text-[9px] font-mono text-emerald-500/80">
+                                file: {commit.filePath}
+                              </span>
+                              {commit.commitSha && commit.commitSha !== 'unknown' && (
+                                <a
+                                  href={`https://github.com/${activeRepo.owner}/${activeRepo.name}/commit/${commit.commitSha}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[9px] text-neutral-500 hover:text-primary hover:underline font-semibold ml-auto"
+                                >
+                                  Inspect commit on GitHub
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
+              </div>
             ) : (
               /* Issues & PRs boards split */
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
@@ -304,33 +392,56 @@ export default function ProjectManager() {
                     {githubIssues.length === 0 ? (
                       <p className="text-[10px] text-neutral-600 text-center py-6">No reported issues</p>
                     ) : (
-                      githubIssues.map((issue) => (
-                        <div key={issue.number} className="p-3 bg-neutral-900/30 border border-neutral-900 rounded-lg hover:border-neutral-850 transition-colors">
-                          <div className="flex items-start justify-between gap-3">
-                            <h5 className="text-xs font-semibold text-white leading-relaxed truncate max-w-[80%]">
-                              #{issue.number} {issue.title}
-                            </h5>
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border ${
-                              issue.state === 'open'
-                                ? 'bg-emerald-950 text-emerald-400 border-emerald-900/30'
-                                : 'bg-neutral-900 text-neutral-500 border-neutral-850'
-                            }`}>
-                              {issue.state}
-                            </span>
+                      githubIssues.map((issue) => {
+                        const isP0 = issue.priority === 'P0';
+                        const isP1 = issue.priority === 'P1';
+                        const isP2 = issue.priority === 'P2';
+                        let badgeColor = 'bg-neutral-900 text-neutral-400 border-neutral-800';
+                        if (isP0) badgeColor = 'bg-red-950/60 text-red-400 border-red-900/30';
+                        else if (isP1) badgeColor = 'bg-orange-950/60 text-orange-400 border-orange-900/30';
+                        else if (isP2) badgeColor = 'bg-amber-950/60 text-amber-400 border-amber-900/30';
+
+                        return (
+                          <div key={issue.number} className="p-3.5 bg-neutral-900/30 border border-neutral-900 rounded-xl hover:border-neutral-850 transition-colors flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-start justify-between gap-3">
+                                <h5 className="text-xs font-semibold text-white leading-relaxed truncate max-w-[70%]">
+                                  #{issue.number} {issue.title}
+                                </h5>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold border ${badgeColor}`}>
+                                    {issue.priority || 'P2'}
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border ${
+                                    issue.state === 'open'
+                                      ? 'bg-emerald-950 text-emerald-400 border-emerald-900/30'
+                                      : 'bg-neutral-900 text-neutral-500 border-neutral-850'
+                                  }`}>
+                                    {issue.state}
+                                  </span>
+                                </div>
+                              </div>
+                              {issue.rationale && (
+                                <p className="text-[10px] text-neutral-400 mt-2 leading-relaxed bg-neutral-950/50 border border-neutral-900/40 rounded-lg p-2 font-mono">
+                                  <span className="text-purple-400 font-semibold font-sans">AI Rank: </span>
+                                  {issue.rationale}
+                                </p>
+                              )}
+                            </div>
+                            <div className="mt-3.5 pt-2 border-t border-neutral-900/50 flex items-center justify-between text-[9px] text-neutral-500 font-mono">
+                              <span>Opened by: @{issue.user}</span>
+                              <a
+                                href={issue.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary hover:underline font-semibold"
+                              >
+                                GitHub link
+                              </a>
+                            </div>
                           </div>
-                          <div className="mt-2 flex items-center justify-between text-[9px] text-neutral-500 font-mono">
-                            <span>Opened by: @{issue.user}</span>
-                            <a
-                              href={issue.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-primary hover:underline font-semibold"
-                            >
-                              GitHub link
-                            </a>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
@@ -346,35 +457,58 @@ export default function ProjectManager() {
 
                   <div className="flex-1 space-y-3 overflow-y-auto max-h-[400px] pr-1.5">
                     {pullRequests.length === 0 ? (
-                      <p className="text-[10px] text-neutral-650 text-center py-6">No branch Pull Requests</p>
+                      <p className="text-[10px] text-neutral-655 text-center py-6">No branch Pull Requests</p>
                     ) : (
-                      pullRequests.map((pr) => (
-                        <div key={pr.number} className="p-3 bg-neutral-900/30 border border-neutral-900 rounded-lg hover:border-neutral-850 transition-colors">
-                          <div className="flex items-start justify-between gap-3">
-                            <h5 className="text-xs font-semibold text-white leading-relaxed truncate max-w-[80%]">
-                              #{pr.number} {pr.title}
-                            </h5>
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border ${
-                              pr.state === 'open'
-                                ? 'bg-sky-950 text-sky-400 border-sky-900/30'
-                                : 'bg-purple-950 text-purple-400 border-purple-900/30'
-                            }`}>
-                              {pr.state}
-                            </span>
+                      pullRequests.map((pr) => {
+                        const isP0 = pr.priority === 'P0';
+                        const isP1 = pr.priority === 'P1';
+                        const isP2 = pr.priority === 'P2';
+                        let badgeColor = 'bg-neutral-900 text-neutral-400 border-neutral-800';
+                        if (isP0) badgeColor = 'bg-red-950/60 text-red-400 border-red-900/30';
+                        else if (isP1) badgeColor = 'bg-orange-950/60 text-orange-400 border-orange-900/30';
+                        else if (isP2) badgeColor = 'bg-amber-950/60 text-amber-400 border-amber-900/30';
+
+                        return (
+                          <div key={pr.number} className="p-3.5 bg-neutral-900/30 border border-neutral-900 rounded-xl hover:border-neutral-850 transition-colors flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-start justify-between gap-3">
+                                <h5 className="text-xs font-semibold text-white leading-relaxed truncate max-w-[70%]">
+                                  #{pr.number} {pr.title}
+                                </h5>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold border ${badgeColor}`}>
+                                    {pr.priority || 'P2'}
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border ${
+                                    pr.state === 'open'
+                                      ? 'bg-sky-950 text-sky-400 border-sky-900/30'
+                                      : 'bg-purple-950 text-purple-400 border-purple-900/30'
+                                  }`}>
+                                    {pr.state}
+                                  </span>
+                                </div>
+                              </div>
+                              {pr.rationale && (
+                                <p className="text-[10px] text-neutral-400 mt-2 leading-relaxed bg-neutral-950/50 border border-neutral-900/40 rounded-lg p-2 font-mono">
+                                  <span className="text-purple-400 font-semibold font-sans">AI Rank: </span>
+                                  {pr.rationale}
+                                </p>
+                              )}
+                            </div>
+                            <div className="mt-3.5 pt-2 border-t border-neutral-900/50 flex items-center justify-between text-[9px] text-neutral-500 font-mono">
+                              <span>By: @{pr.user}</span>
+                              <a
+                                href={pr.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary hover:underline font-semibold"
+                              >
+                                GitHub link
+                              </a>
+                            </div>
                           </div>
-                          <div className="mt-2 flex items-center justify-between text-[9px] text-neutral-500 font-mono">
-                            <span>By: @{pr.user}</span>
-                            <a
-                              href={pr.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-primary hover:underline font-semibold"
-                            >
-                              GitHub link
-                            </a>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>

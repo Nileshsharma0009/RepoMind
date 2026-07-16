@@ -1,7 +1,8 @@
 import Repository from '../models/Repository.js';
 import RepositoryIndex from '../models/RepositoryIndex.js';
 import User from '../models/User.js';
-import { fetchFileContent } from '../services/github.service.js';
+import Commit from '../models/Commit.js';
+import { fetchFileContent, commitFileToRepo } from '../services/github.service.js';
 import { connectRepository, indexRepositoryBackground } from '../services/repository.service.js';
 
 export const listConnectedRepos = async (req, res, next) => {
@@ -267,6 +268,102 @@ export const searchRepositoryIndex = async (req, res, next) => {
   }
 };
 
+export const commitDocFile = async (req, res, next) => {
+  try {
+    const { id: repositoryId } = req.params;
+    const { filePath, content, commitMessage } = req.body;
+
+    if (!filePath || !content) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Missing filePath or content in request body.',
+      });
+    }
+
+    const repository = await Repository.findOne({
+      _id: repositoryId,
+      userId: req.user._id,
+    });
+
+    if (!repository) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Repository not found or access denied.',
+      });
+    }
+
+    const user = await User.findById(req.user._id).select('+githubAccessToken');
+    if (!user || !user.githubAccessToken) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'User does not have an active GitHub token. Please re-authenticate.',
+      });
+    }
+
+    const msg = commitMessage || `docs: update ${filePath} via RepoMind`;
+    const result = await commitFileToRepo(
+      repository.owner,
+      repository.name,
+      filePath,
+      content,
+      msg,
+      repository.defaultBranch || 'main',
+      user.githubAccessToken
+    );
+
+    // Save commit record to database
+    try {
+      await Commit.create({
+        userId: req.user._id,
+        repositoryId: repository._id,
+        filePath,
+        commitMessage: msg,
+        commitSha: result.commit?.sha || 'unknown',
+        branch: repository.defaultBranch || 'main',
+      });
+    } catch (dbErr) {
+      console.error('[REPOSITORY CONTROLLER] Failed to save commit record to database:', dbErr.message);
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: `File ${filePath} committed successfully!`,
+      commitSha: result.commit?.sha,
+    });
+  } catch (error) {
+    console.error('[REPOSITORY CONTROLLER] Failed to commit documentation:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to commit file to GitHub: ' + (error.response?.data?.message || error.message),
+    });
+  }
+};
+
+export const getPlatformCommits = async (req, res, next) => {
+  try {
+    const { id: repositoryId } = req.params;
+
+    const commits = await Commit.find({
+      repositoryId,
+      userId: req.user._id,
+    })
+      .populate('userId', 'username email')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      status: 'success',
+      results: commits.length,
+      commits,
+    });
+  } catch (error) {
+    console.error('[REPOSITORY CONTROLLER] Failed to fetch platform commits:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to retrieve platform commits history.',
+    });
+  }
+};
+
 export default {
   listConnectedRepos,
   connectRepo,
@@ -275,4 +372,6 @@ export default {
   disconnectRepo,
   getFileContent,
   searchRepositoryIndex,
+  commitDocFile,
+  getPlatformCommits,
 };

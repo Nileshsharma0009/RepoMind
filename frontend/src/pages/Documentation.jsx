@@ -1,4 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import CommitModal from '../components/Documentation/CommitModal.jsx';
 import MainLayout from '../components/Layout/MainLayout.jsx';
 import { useRepository } from '../context/RepositoryContext.jsx';
 import api from '../services/api.js';
@@ -30,22 +35,43 @@ const categories = [
   { key: 'changelog', label: 'Changelog', icon: FileText },
 ];
 
+const defaultPaths = {
+  readme: 'README.md',
+  api: 'API_REFERENCE.md',
+  folder: 'FOLDER_STRUCTURE.md',
+  setup: 'SETUP_GUIDE.md',
+  deployment: 'DEPLOYMENT_GUIDE.md',
+  architecture: 'ARCHITECTURE_GUIDE.md',
+  release: 'RELEASE_NOTES.md',
+  changelog: 'CHANGELOG.md',
+};
+
 export default function Documentation() {
   const { activeRepo, activeRepoLoading } = useRepository();
   const [selectedCategory, setSelectedCategory] = useState('readme');
   const [content, setContent] = useState('');
+  const [draftContent, setDraftContent] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+
+
+  // Commit Modal States
+  const [showCommitModal, setShowCommitModal] = useState(false);
 
   const fetchDocument = async () => {
     if (!activeRepo) return;
     setLoading(true);
     setError('');
     setContent('');
+    setDraftContent('');
+    setIsEditing(false);
+
     try {
       const { data } = await api.get(`/repositories/${activeRepo._id}/docs/${selectedCategory}`);
       setContent(data.content || '');
+      setDraftContent(data.content || '');
     } catch (err) {
       console.error('Failed to load documentation:', err);
       setError(err.response?.data?.message || 'Failed to assemble guide from indexing database.');
@@ -57,6 +83,18 @@ export default function Documentation() {
   useEffect(() => {
     fetchDocument();
   }, [activeRepo, selectedCategory]);
+
+  const handleStartEditing = () => {
+    setDraftContent(content);
+    setIsEditing(true);
+  };
+
+  const handleCancelEditing = () => {
+    setDraftContent(content);
+    setIsEditing(false);
+  };
+
+
 
   const handleCopy = () => {
     if (!content) return;
@@ -78,124 +116,46 @@ export default function Documentation() {
     URL.revokeObjectURL(url);
   };
 
-  // Basic HTML markdown formatter
+  // ReactMarkdown syntax-highlighted formatter
   const renderMarkdown = (mdText = '') => {
     if (!mdText) return null;
 
-    const lines = mdText.split('\n');
-    let inCodeBlock = false;
-    let codeContent = [];
-
-    return lines.map((line, idx) => {
-      // Code blocks
-      if (line.trim().startsWith('```')) {
-        if (inCodeBlock) {
-          inCodeBlock = false;
-          const currentCode = codeContent.join('\n');
-          codeContent = [];
-          return (
-            <pre
-              key={idx}
-              className="my-4 p-4 bg-neutral-950 border border-neutral-900 rounded-lg overflow-x-auto text-xs font-mono text-emerald-400 select-text leading-relaxed"
-            >
-              <code>{currentCode}</code>
-            </pre>
-          );
-        } else {
-          inCodeBlock = true;
-          return null;
-        }
-      }
-
-      if (inCodeBlock) {
-        codeContent.push(line);
-        return null;
-      }
-
-      // Headers
-      if (line.trim().startsWith('# ')) {
-        return (
-          <h1 key={idx} className="text-xl font-bold text-white mt-6 mb-3 border-b border-neutral-900 pb-2 first:mt-0 font-display">
-            {line.trim().substring(2)}
-          </h1>
-        );
-      }
-      if (line.trim().startsWith('## ')) {
-        return (
-          <h2 key={idx} className="text-lg font-bold text-white mt-5 mb-3 first:mt-0 font-display">
-            {line.trim().substring(3)}
-          </h2>
-        );
-      }
-      if (line.trim().startsWith('### ')) {
-        return (
-          <h3 key={idx} className="text-sm font-bold text-white mt-4 mb-2 first:mt-0 font-display">
-            {line.trim().substring(4)}
-          </h3>
-        );
-      }
-
-      // Bullets
-      if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-        return (
-          <li key={idx} className="ml-4 list-disc text-xs text-neutral-350 my-1 leading-relaxed">
-            {parseInline(line.trim().substring(2))}
-          </li>
-        );
-      }
-
-      // Empty spacing
-      if (line.trim() === '') {
-        return <div key={idx} className="h-2" />;
-      }
-
-      return (
-        <p key={idx} className="text-xs text-neutral-350 my-2 leading-relaxed">
-          {parseInline(line)}
-        </p>
-      );
-    });
-  };
-
-  const parseInline = (str) => {
-    const parts = [];
-    let key = 0;
-    const regex = /(\*\*.*?\*\*|`.*?`)/g;
-    const matches = [];
-    let match;
-
-    while ((match = regex.exec(str)) !== null) {
-      matches.push({ text: match[0], index: match.index });
-    }
-
-    if (matches.length === 0) return str;
-
-    let lastIndex = 0;
-    matches.forEach((m) => {
-      if (m.index > lastIndex) {
-        parts.push(str.substring(lastIndex, m.index));
-      }
-      if (m.text.startsWith('**')) {
-        parts.push(
-          <strong key={key++} className="font-bold text-white">
-            {m.text.substring(2, m.text.length - 2)}
-          </strong>
-        );
-      } else {
-        parts.push(
-          <code key={key++} className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[10px] font-mono text-purple-400">
-            {m.text.substring(1, m.text.length - 1)}
-          </code>
-        );
-      }
-      lastIndex = m.index + m.text.length;
-    });
-
-    if (lastIndex < str.length) {
-      parts.push(str.substring(lastIndex));
-    }
-
-    return parts;
+    return (
+      <div className="prose prose-invert prose-xs max-w-none text-left select-text">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            code({ node, className, children, ...props }) {
+              const match = /language-(\w+)/.exec(className || '');
+              return match ? (
+                <SyntaxHighlighter
+                  style={vscDarkPlus}
+                  language={match[1]}
+                  PreTag="div"
+                  className="rounded-xl border border-neutral-900 my-4 !bg-neutral-950 font-mono text-[11px] leading-relaxed"
+                  {...props}
+                >
+                  {String(children).replace(/\n$/, '')}
+                </SyntaxHighlighter>
+              ) : (
+                <code className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[10px] font-mono text-purple-400" {...props}>
+                  {children}
+                </code>
+              );
+            },
+            a({ node, href, children, ...props }) {
+              return (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold" {...props}>
+                  {children}
+                </a>
+              );
+            }
+          }}
+        >
+          {mdText}
+        </ReactMarkdown>
+      </div>
+    );
   };
 
   return (
@@ -231,7 +191,10 @@ export default function Documentation() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-11rem)]">
+        <div className="space-y-4">
+
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-11rem)]">
           {/* Left panel selector list */}
           <div className="lg:col-span-1 flex flex-col gap-2 overflow-y-auto">
             {categories.map((cat) => {
@@ -260,47 +223,97 @@ export default function Documentation() {
             <div className="p-3 bg-neutral-950/80 border-b border-neutral-900 flex items-center justify-between gap-4 shrink-0">
               <span className="text-xs font-bold text-white flex items-center gap-1.5 uppercase font-mono tracking-wider">
                 <FileText className="w-4 h-4 text-primary" />
-                Document Compiler
-              </span>
-
-              {content && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleCopy}
-                    className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-400 hover:text-white rounded-lg text-xs transition-colors flex items-center gap-1"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'Copied' : 'Copy'}</span>
-                  </button>
-                  <button
-                    onClick={handleDownload}
-                    className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-400 hover:text-white rounded-lg text-xs transition-colors flex items-center gap-1"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download</span>
-                  </button>
+                Document Compiler {isEditing && <span className="text-[10px] text-primary/80 lowercase font-normal">(Editing Mode)</span>}
+              </span>              {content && (
+                <div className="flex items-center gap-2 font-display">
+                  {isEditing ? (
+                    <>
+                      <button
+                        onClick={handleCancelEditing}
+                        className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-400 hover:text-white rounded-lg text-xs transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => setShowCommitModal(true)}
+                        className="px-3 py-1 bg-primary hover:bg-primary/95 text-white font-semibold rounded-lg text-xs transition-colors shadow-theme-glow"
+                      >
+                        Commit to GitHub
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleStartEditing}
+                        className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-350 hover:text-white rounded-lg text-xs transition-colors"
+                      >
+                        Edit Guide
+                      </button>
+                      <button
+                        onClick={() => setShowCommitModal(true)}
+                        className="px-3 py-1 bg-primary hover:bg-primary/95 text-white font-semibold rounded-lg text-xs transition-colors shadow-theme-glow"
+                      >
+                        Commit to GitHub
+                      </button>
+                      <button
+                        onClick={handleCopy}
+                        className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-855 text-neutral-400 hover:text-white rounded-lg text-xs transition-colors flex items-center gap-1"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copied ? 'Copied' : 'Copy'}</span>
+                      </button>
+                      <button
+                        onClick={handleDownload}
+                        className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-855 text-neutral-400 hover:text-white rounded-lg text-xs transition-colors flex items-center gap-1"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Document display board */}
-            <div className="flex-1 overflow-y-auto p-6 bg-neutral-950/20 text-left select-text relative">
+            <div className="flex-1 overflow-y-auto p-6 bg-neutral-950/20 text-left select-text relative flex flex-col">
               {loading && (
-                <div className="absolute inset-0 bg-neutral-950/80 flex flex-col items-center justify-center gap-2">
+                <div className="absolute inset-0 bg-neutral-950/80 flex flex-col items-center justify-center gap-2 z-10">
                   <Loader2 className="w-6 h-6 text-primary animate-spin" />
                   <span className="text-xs text-neutral-500 font-mono">Parsing indexing schemas...</span>
                 </div>
               )}
 
               {error && (
-                <div className="p-4 bg-red-950/15 border border-red-950/30 rounded-xl text-xs text-red-400 flex items-start gap-2.5">
+                <div className="p-4 bg-red-950/15 border border-red-950/30 rounded-xl text-xs text-red-400 flex items-start gap-2.5 mb-4 shrink-0">
                   <AlertTriangle className="w-4.5 h-4.5 shrink-0 mt-0.5" />
                   <p>{error}</p>
                 </div>
               )}
 
-              {content && renderMarkdown(content)}
+              {isEditing ? (
+                <textarea
+                  value={draftContent}
+                  onChange={(e) => setDraftContent(e.target.value)}
+                  className="w-full flex-1 p-4 bg-neutral-900/40 border border-neutral-850 rounded-xl text-xs font-mono text-neutral-200 outline-none focus:border-primary/50 resize-none leading-relaxed"
+                  placeholder="Draft markdown guide content here..."
+                />
+              ) : (
+                content && renderMarkdown(content)
+              )}
             </div>
+          </div>
+          <CommitModal
+            isOpen={showCommitModal}
+            onClose={() => setShowCommitModal(false)}
+            activeRepo={activeRepo}
+            selectedCategory={selectedCategory}
+            draftContent={draftContent}
+            onCommitSuccess={(newContent) => {
+              setContent(newContent);
+              setIsEditing(false);
+            }}
+          />
           </div>
         </div>
       )}

@@ -29,7 +29,7 @@ const navItems = [
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ collapsed }) {
   const { user, logout } = useAuth();
   const { connectedRepos, activeRepo, selectRepo } = useRepository();
   const navigate = useNavigate();
@@ -40,7 +40,9 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 min-h-screen bg-neutral-950 border-r border-neutral-800/60 flex flex-col shrink-0">
+    <aside className={`min-h-screen bg-neutral-950 border-r border-neutral-800/60 flex flex-col shrink-0 transition-all duration-300 ease-in-out ${
+      collapsed ? 'w-0 opacity-0 overflow-hidden border-r-0' : 'w-64 opacity-100'
+    }`}>
       <div className="p-5 border-b border-neutral-800/60">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center shadow-glass-glow">

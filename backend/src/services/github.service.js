@@ -90,3 +90,40 @@ export const fetchFileContent = async (owner, repo, fileSha, accessToken) => {
   return data.content || '';
 };
 
+/**
+ * Commits a file to a GitHub repository using the contents PUT API.
+ */
+export const commitFileToRepo = async (owner, repo, filePath, content, commitMessage, branch, accessToken) => {
+  let fileSha = null;
+  try {
+    const { data } = await githubApi.get(`/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    fileSha = data.sha;
+  } catch (err) {
+    if (err.response?.status !== 404) {
+      throw err;
+    }
+  }
+
+  const base64Content = Buffer.from(content, 'utf8').toString('base64');
+  const payload = {
+    message: commitMessage,
+    content: base64Content,
+    branch,
+  };
+  if (fileSha) {
+    payload.sha = fileSha;
+  }
+
+  const { data } = await githubApi.put(`/repos/${owner}/${repo}/contents/${filePath}`, payload, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  return data;
+};
+

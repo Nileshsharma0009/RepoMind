@@ -72,7 +72,8 @@ export const getGitInfo = async (req, res, next) => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      issues = issuesData.map((i) => ({
+
+      const rawIssues = issuesData.map((i) => ({
         number: i.number,
         title: i.title,
         state: i.state,
@@ -81,6 +82,73 @@ export const getGitInfo = async (req, res, next) => {
         createdAt: i.created_at,
         user: i.user?.login || 'unknown',
       }));
+
+      // Dynamically prioritize using Gemini AI
+      let priorityMap = {};
+      const genAI = getGenAI();
+      if (genAI && rawIssues.length > 0) {
+        try {
+          const pmPrompt = `Act as an expert project manager. You are given a list of GitHub issues and pull requests from a repository backlog.
+Analyze their titles to assign:
+1. A Priority level: 'P0' (Critical blockage, security leak, critical bug), 'P1' (Major functionality, setup guide, high priority bug), 'P2' (Medium features, enhancements), or 'P3' (Minor task, typos).
+2. A single sentence Rationale for the assigned priority.
+
+Here is the JSON list of items to prioritize:
+${JSON.stringify(rawIssues.map(i => ({ number: i.number, title: i.title, isPullRequest: i.isPullRequest })), null, 2)}
+
+Provide your output ONLY as a valid JSON array of objects conforming exactly to this structure (no markdown fences, no explainers):
+[
+  {
+    "number": <number>,
+    "priority": "P0" | "P1" | "P2" | "P3",
+    "rationale": "<sentence>"
+  }
+]
+`;
+          const geminiResult = await limiter.schedule(() =>
+            genAI.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: pmPrompt,
+            })
+          );
+          const responseText = typeof geminiResult.text === 'function' ? geminiResult.text() : geminiResult.text;
+          const cleanText = responseText.replace(/```json/i, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(cleanText);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(item => {
+              priorityMap[item.number] = {
+                priority: item.priority || 'P2',
+                rationale: item.rationale || 'Assigned default priority.',
+              };
+            });
+          }
+        } catch (err) {
+          console.warn('[PM CONTROLLER] Failed to prioritize issues using AI:', err.message);
+        }
+      }
+
+      issues = rawIssues.map((i) => {
+        const prioInfo = priorityMap[i.number] || {
+          priority: i.isPullRequest ? 'P1' : 'P2',
+          rationale: i.isPullRequest ? 'Review pull request code changes.' : 'Open issue backlogged.',
+        };
+        return {
+          ...i,
+          priority: prioInfo.priority,
+          rationale: prioInfo.rationale,
+        };
+      });
+
+      // Sort by priority (P0 -> P1 -> P2 -> P3)
+      const priorityOrder = { P0: 0, P1: 1, P2: 2, P3: 3 };
+      issues.sort((a, b) => {
+        const orderA = priorityOrder[a.priority] ?? 2;
+        const orderB = priorityOrder[b.priority] ?? 2;
+        if (orderA !== orderB) return orderA - orderB;
+        if (a.state !== b.state) return a.state === 'open' ? -1 : 1;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+
     } catch (err) {
       console.warn('[PM CONTROLLER] Failed to fetch issues:', err.message);
     }

@@ -7,6 +7,8 @@ import {
   disconnectRepo,
   getFileContent,
   searchRepositoryIndex,
+  commitDocFile,
+  getPlatformCommits,
 } from '../controllers/repository.controller.js';
 import { getDocumentation } from '../controllers/documentation.controller.js';
 import protect from '../middleware/auth.middleware.js';
@@ -24,6 +26,8 @@ router.route('/:id')
   .delete(disconnectRepo);
 
 router.post('/:id/sync', syncRepo);
+router.post('/:id/commit', commitDocFile);
+router.get('/:id/commits/platform', getPlatformCommits);
 router.get('/:id/files/content', getFileContent);
 router.get('/:id/search', searchRepositoryIndex);
 router.get('/:id/docs/:type', getDocumentation);
