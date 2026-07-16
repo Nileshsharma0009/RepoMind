@@ -20,6 +20,29 @@ export const getDocumentation = async (req, res, next) => {
     });
   } catch (error) {
     console.error('[DOCUMENTATION CONTROLLER] Error compiling guide:', error.message);
+    
+    const errMsg = error.message || '';
+    const isRateLimit =
+      errMsg.includes('429') ||
+      errMsg.toLowerCase().includes('quota') ||
+      errMsg.toLowerCase().includes('rate limit') ||
+      errMsg.toLowerCase().includes('resource_exhausted');
+
+    if (isRateLimit) {
+      const matchSeconds =
+        errMsg.match(/retry(?:\s+in)?\s+([\d\.]+)\s*s/i) ||
+        errMsg.match(/retry\s+after\s+(\d+)\s*s/i) ||
+        errMsg.match(/retry(?:\s+in)?\s+(\d+)\s*seconds/i);
+
+      const seconds = matchSeconds ? Math.ceil(parseFloat(matchSeconds[1])) : 60;
+
+      return res.status(429).json({
+        status: 'rate_limited',
+        retryAfter: seconds,
+        message: `Gemini API rate limit reached. Please try again in ${seconds} seconds.`,
+      });
+    }
+
     res.status(500).json({
       status: 'error',
       message: 'Failed to generate documentation. ' + error.message,

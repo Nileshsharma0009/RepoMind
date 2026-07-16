@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import env from './config/env.js';
-import requestLogger from './middleware/logger.middleware.js';
+import logger from './config/logger.js';
 import errorHandler from './middleware/error.middleware.js';
 import authRoutes from './routes/auth.routes.js';
 import githubRoutes from './routes/github.routes.js';
@@ -21,11 +21,13 @@ app.use(
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-} else {
-  app.use(requestLogger);
-}
+app.use(
+  morgan(':method :url :status :res[content-length] - :response-time ms', {
+    stream: {
+      write: (message) => logger.info(`[HTTP] ${message.trim()}`),
+    },
+  })
+);
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({

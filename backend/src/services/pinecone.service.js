@@ -62,6 +62,28 @@ export const queryVectors = async (vector, repositoryId, limit = 5) => {
 };
 
 /**
+ * Gets the configured dimension of the Pinecone index
+ * @returns {Promise<number|null>} Dimension size or null if failed
+ */
+export const getIndexDimension = async () => {
+  try {
+    const apiKey = process.env.PINECONE_API_KEY || env.pineconeApiKey;
+    const indexName = process.env.PINECONE_INDEX || env.pineconeIndex;
+
+    if (!apiKey || apiKey === 'dummy_pinecone_api_key' || !indexName) {
+      return null;
+    }
+
+    const pc = new Pinecone({ apiKey });
+    const desc = await pc.describeIndex(indexName);
+    return desc.dimension || null;
+  } catch (err) {
+    console.warn('[PINECONE SERVICE] Failed to describe index:', err.message);
+    return null;
+  }
+};
+
+/**
  * Deletes all vector embeddings associated with a repository
  * @param {string} repositoryId - The repository ID
  */
@@ -83,4 +105,5 @@ export default {
   upsertVectors,
   queryVectors,
   deleteRepositoryVectors,
+  getIndexDimension,
 };

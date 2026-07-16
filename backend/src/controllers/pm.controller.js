@@ -3,9 +3,10 @@ import RepositoryIndex from '../models/RepositoryIndex.js';
 import User from '../models/User.js';
 import axios from 'axios';
 import githubConfig from '../config/github.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { fetchFileContent } from '../services/github.service.js';
 import env from '../config/env.js';
+import limiter from '../utils/limiter.js';
 
 const githubApi = axios.create({
   baseURL: githubConfig.apiUrl,
@@ -163,7 +164,7 @@ const getGenAI = () => {
   if (!apiKey || apiKey === 'dummy_gemini_api_key') {
     return null;
   }
-  return new GoogleGenerativeAI(apiKey);
+  return new GoogleGenAI({ apiKey });
 };
 
 export const runAgentAnalysis = async (req, res, next) => {
@@ -274,27 +275,44 @@ Ready to run analysis as soon as keys are configured.`,
       });
     }
 
+    const geminiModels = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+    ];
+
     let result;
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      result = await model.generateContent(prompt);
-    } catch (err) {
-      const errMsg = err.message || '';
-      if (errMsg.includes('404') || errMsg.toLowerCase().includes('not found')) {
-        console.warn('[PM AGENT] gemini-1.5-flash failed, trying gemini-1.5-flash-latest...');
-        try {
-          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-          result = await model.generateContent(prompt);
-        } catch (err2) {
-          console.warn('[PM AGENT] gemini-1.5-flash-latest failed, trying gemini-pro...');
-          const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-          result = await model.generateContent(prompt);
+    for (const modelName of geminiModels) {
+      try {
+        result = await limiter.schedule(() =>
+          genAI.models.generateContent({
+            model: modelName,
+            contents: prompt,
+          })
+        );
+        break;
+      } catch (err) {
+        console.warn(`[PM AGENT] Model ${modelName} failed:`, err.message);
+
+        // Stop fallback loop immediately on 429 rate limit
+        const errMsg = err.message || '';
+        const isRateLimit =
+          errMsg.includes('429') ||
+          errMsg.toLowerCase().includes('quota') ||
+          errMsg.toLowerCase().includes('rate limit') ||
+          errMsg.toLowerCase().includes('resource_exhausted') ||
+          err.status === 429;
+
+        if (isRateLimit) {
+          throw err;
         }
-      } else {
-        throw err;
       }
     }
-    const responseText = result.response.text();
+
+    if (!result) {
+      throw new Error('No Gemini model available.');
+    }
+
+    const responseText = typeof result.text === 'function' ? result.text() : result.text;
 
     res.status(200).json({
       status: 'success',
@@ -302,15 +320,36 @@ Ready to run analysis as soon as keys are configured.`,
     });
   } catch (error) {
     console.error('[PM CONTROLLER] Agent run failed:', error.message);
-    res.status(200).json({
-      status: 'success',
-      result: `### ⚠️ AI Agent Execution Failed
+    
+    const errMsg = error.message || '';
+    const isRateLimit =
+      errMsg.includes('429') ||
+      errMsg.toLowerCase().includes('quota') ||
+      errMsg.toLowerCase().includes('rate limit') ||
+      errMsg.toLowerCase().includes('resource_exhausted') ||
+      error.status === 429;
+
+    let resultMessage = `### ⚠️ AI Agent Execution Failed
 The agent encountered a configuration or API error: **${error.message}**
 
 **Troubleshooting Checklist**:
 1. Check that the \`GEMINI_API_KEY\` in your backend \`.env\` file is correct.
 2. Confirm the **Generative Language API** is enabled for this API key in Google Cloud Console / Google AI Studio.
-3. If this is a free key, make sure you are not exceeding rate limits (15 RPM).`,
+3. If this is a free key, make sure you are not exceeding rate limits (15 RPM).`;
+
+    if (isRateLimit) {
+      const matchSeconds =
+        errMsg.match(/retry(?:\s+in)?\s+([\d\.]+)\s*s/i) ||
+        errMsg.match(/retry\s+after\s+(\d+)\s*s/i) ||
+        errMsg.match(/retry(?:\s+in)?\s+(\d+)\s*seconds/i);
+      const seconds = matchSeconds ? Math.ceil(parseFloat(matchSeconds[1])) : 60;
+      resultMessage = `### ⚠️ Gemini API Rate Limit Reached
+You have exceeded the Gemini free-tier rate limits. Please wait **${seconds} seconds** and try running the agent again.`;
+    }
+
+    res.status(200).json({
+      status: 'success',
+      result: resultMessage,
     });
   }
 };

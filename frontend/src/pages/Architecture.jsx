@@ -164,8 +164,16 @@ export default function Architecture() {
     };
 
     files.forEach((f) => {
-      if (totals[f.type] !== undefined) {
-        totals[f.type]++;
+      // Map singular backend type classifications to plural frontend stats keys
+      let typeKey = f.type;
+      if (typeKey === 'route') typeKey = 'routes';
+      else if (typeKey === 'controller') typeKey = 'controllers';
+      else if (typeKey === 'service') typeKey = 'services';
+      else if (typeKey === 'model') typeKey = 'models';
+      else if (typeKey === 'component') typeKey = 'components';
+
+      if (totals[typeKey] !== undefined) {
+        totals[typeKey]++;
       } else {
         totals.other++;
       }

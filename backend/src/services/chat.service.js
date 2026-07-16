@@ -1,5 +1,6 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import env from '../config/env.js';
+import limiter from '../utils/limiter.js';
 import RepositoryIndex from '../models/RepositoryIndex.js';
 import Repository from '../models/Repository.js';
 import { getEmbedding } from './embedding.service.js';
@@ -11,7 +12,7 @@ const getGenAI = () => {
   if (!apiKey || apiKey === 'dummy_gemini_api_key') {
     return null;
   }
-  return new GoogleGenerativeAI(apiKey);
+  return new GoogleGenAI({ apiKey });
 };
 
 /**
@@ -41,10 +42,20 @@ const searchLocalChunks = async (repositoryId, queryText, limit = 8) => {
     });
   });
 
-  return await RepositoryIndex.find({
+  const matches = await RepositoryIndex.find({
     repositoryId,
     $or: orConditions,
   }).limit(limit);
+
+  if (matches.length === 0) {
+    // Fallback: If keyword match returns nothing, fetch the first few indexed files/chunks (e.g. README.md or entry points)
+    // to give the model some context of the repository structure
+    return await RepositoryIndex.find({ repositoryId })
+      .sort({ filePath: 1, chunkIndex: 1 })
+      .limit(limit);
+  }
+
+  return matches;
 };
 
 /**
@@ -66,16 +77,41 @@ export const generateChatAnswer = async (repositoryId, message, chatHistory = []
       throw new Error('Repository not found.');
     }
 
-    console.log('[AI-CHAT] Querying codebase segments directly via local MongoDB search...');
-    const localMatches = await searchLocalChunks(repositoryId, message, 6);
-    matchedChunks = localMatches.map((m) => ({
-      filePath: m.filePath,
-      startLine: m.startLine,
-      endLine: m.endLine,
-      content: m.content,
-    }));
+    const pineconeApiKey = process.env.PINECONE_API_KEY || env.pineconeApiKey;
+    let vectorMatches = null;
 
-    console.log(`[AI-CHAT] Retrieved ${matchedChunks.length} matching code blocks.`);
+    if (pineconeApiKey && pineconeApiKey !== 'dummy_pinecone_api_key') {
+      try {
+        console.log('[AI-CHAT] Generating query embedding for vector search...');
+        const queryVector = await getEmbedding(message);
+        if (queryVector) {
+          console.log('[AI-CHAT] Querying Pinecone vector index...');
+          vectorMatches = await queryVectors(queryVector, repositoryId, 6);
+        }
+      } catch (vectorErr) {
+        console.warn('[AI-CHAT] Vector search failed, falling back to local MongoDB search:', vectorErr.message);
+      }
+    }
+
+    if (vectorMatches && vectorMatches.length > 0) {
+      console.log(`[AI-CHAT] Retrieved ${vectorMatches.length} matching code blocks from Pinecone.`);
+      matchedChunks = vectorMatches.map((match) => ({
+        filePath: match.metadata.filePath,
+        startLine: match.metadata.startLine,
+        endLine: match.metadata.endLine,
+        content: match.metadata.content,
+      }));
+    } else {
+      console.log('[AI-CHAT] Querying codebase segments directly via local MongoDB search...');
+      const localMatches = await searchLocalChunks(repositoryId, message, 6);
+      matchedChunks = localMatches.map((m) => ({
+        filePath: m.filePath,
+        startLine: m.startLine,
+        endLine: m.endLine,
+        content: m.content,
+      }));
+      console.log(`[AI-CHAT] Retrieved ${matchedChunks.length} matching code blocks from MongoDB.`);
+    }
 
     // 1. Build prompt context
     let contextStr = '';
@@ -136,42 +172,47 @@ Constraints:
       parts: [{ text: message }],
     });
 
+    const geminiModels = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+    ];
+
     let result;
-    try {
-      const model = genAI.getGenerativeModel({ 
-        model: 'gemini-1.5-flash',
-        systemInstruction,
-      });
-      result = await model.generateContent({ contents });
-    } catch (err) {
-      const errMsg = err.message || '';
-      if (errMsg.includes('404') || errMsg.toLowerCase().includes('not found')) {
-        console.warn('[AI-CHAT] gemini-1.5-flash failed with 404, attempting gemini-1.5-flash-latest...');
-        try {
-          const model = genAI.getGenerativeModel({ 
-            model: 'gemini-1.5-flash-latest',
-            systemInstruction,
-          });
-          result = await model.generateContent({ contents });
-        } catch (err2) {
-          console.warn('[AI-CHAT] gemini-1.5-flash-latest failed, falling back to stable gemini-pro...');
-          // For gemini-pro, system instruction can be concatenated directly into prompt parts
-          const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-          const modifiedContents = [
-            {
-              role: 'user',
-              parts: [{ text: `System Instructions:\n${systemInstruction}\n\nBegin chat history.` }],
+    for (const modelName of geminiModels) {
+      try {
+        result = await limiter.schedule(() =>
+          genAI.models.generateContent({
+            model: modelName,
+            contents: contents,
+            config: {
+              systemInstruction,
             },
-            ...contents,
-          ];
-          result = await model.generateContent({ contents: modifiedContents });
+          })
+        );
+        break;
+      } catch (err) {
+        console.warn(`[AI-CHAT] Model ${modelName} failed:`, err.message);
+
+        // Stop fallback loop immediately on 429 rate limit
+        const errMsg = err.message || '';
+        const isRateLimit =
+          errMsg.includes('429') ||
+          errMsg.toLowerCase().includes('quota') ||
+          errMsg.toLowerCase().includes('rate limit') ||
+          errMsg.toLowerCase().includes('resource_exhausted') ||
+          err.status === 429;
+
+        if (isRateLimit) {
+          throw err;
         }
-      } else {
-        throw err;
       }
     }
 
-    const responseText = result.response.text();
+    if (!result) {
+      throw new Error('No Gemini model available.');
+    }
+
+    const responseText = typeof result.text === 'function' ? result.text() : result.text;
 
     return {
       answer: responseText,
@@ -183,9 +224,29 @@ Constraints:
       .map((r) => `- [${r.filePath.split('/').pop()}: L${r.startLine}-${r.endLine}](repomind:///${r.filePath}#L${r.startLine})`)
       .join('\n');
 
+    const errMsg = err.message || '';
+    const isRateLimit =
+      errMsg.includes('429') ||
+      errMsg.toLowerCase().includes('quota') ||
+      errMsg.toLowerCase().includes('rate limit') ||
+      errMsg.toLowerCase().includes('resource_exhausted') ||
+      err.status === 429;
+
+    let errorDetailText = `generateContent failed: **${err.message}**`;
+    if (isRateLimit) {
+      const matchSeconds =
+        errMsg.match(/retry(?:\s+in)?\s+([\d\.]+)\s*s/i) ||
+        errMsg.match(/retry\s+after\s+(\d+)\s*s/i) ||
+        errMsg.match(/retry(?:\s+in)?\s+(\d+)\s*seconds/i);
+      const seconds = matchSeconds ? Math.ceil(parseFloat(matchSeconds[1])) : 60;
+      errorDetailText = `### ⚠️ Gemini API Rate Limit Reached\nYou have exceeded the Gemini free-tier rate limits. Please try again in **${seconds} seconds**.`;
+    }
+
     return {
-      answer: `### ⚠️ Gemini API Resolution Failure
-The chat engine encountered an error generating an AI response: **${err.message}**
+      answer: isRateLimit
+        ? errorDetailText
+        : `### ⚠️ Gemini API Resolution Failure
+${errorDetailText}
 
 **Diagnostics Guide**:
 1. Confirm that your \`GEMINI_API_KEY\` is loaded and valid in your \`.env\` file.

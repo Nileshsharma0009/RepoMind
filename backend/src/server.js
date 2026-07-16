@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './config/logger.js';
 import app from './app.js';
 import env, { validateEnv } from './config/env.js';
 import ConnectDB from './config/db.js';

@@ -1,13 +1,15 @@
 import Repository from '../models/Repository.js';
+import Documentation from '../models/Documentation.js';
 import env from '../config/env.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
+import limiter from '../utils/limiter.js';
 
 const getGenAI = () => {
   const apiKey = process.env.GEMINI_API_KEY || env.geminiApiKey;
   if (!apiKey || apiKey === 'dummy_gemini_api_key') {
     return null;
   }
-  return new GoogleGenerativeAI(apiKey);
+  return new GoogleGenAI({ apiKey });
 };
 
 const getFallbackDoc = (repo, type) => {
@@ -172,13 +174,17 @@ Initial launch specifications for the codebase **${repo.name}**.
   }
 };
 
-/**
- * Dynamically generates structured developer documents.
- */
 export const generateDocumentation = async (repositoryId, type) => {
   const repo = await Repository.findById(repositoryId);
   if (!repo) {
     throw new Error('Repository not found.');
+  }
+
+  // Check MongoDB cache first
+  const docType = type.toLowerCase();
+  const cachedDoc = await Documentation.findOne({ repositoryId, type: docType });
+  if (cachedDoc) {
+    return cachedDoc.content;
   }
 
   const genAI = getGenAI();
@@ -190,7 +196,7 @@ export const generateDocumentation = async (repositoryId, type) => {
   const listStr = filesList.map(f => `- File: ${f.path} (Type: ${f.type}, Extension: ${f.extension})`).slice(0, 60).join('\n');
 
   let prompt = '';
-  switch (type.toLowerCase()) {
+  switch (docType) {
     case 'readme':
       prompt = `Write a comprehensive, professional README.md developer overview for the repository named "${repo.name}".
 Description: ${repo.description || 'Software codebase.'}
@@ -251,28 +257,67 @@ Explain how routes, controllers, services, and models interact. Frame it as a Cl
   }
 
   try {
+    const geminiModels = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+    ];
+
     let result;
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      result = await model.generateContent(prompt);
-    } catch (err) {
-      const errMsg = err.message || '';
-      if (errMsg.includes('404') || errMsg.toLowerCase().includes('not found')) {
-        console.warn('[DOC SERVICE] gemini-1.5-flash failed, trying gemini-1.5-flash-latest...');
-        try {
-          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-          result = await model.generateContent(prompt);
-        } catch (err2) {
-          console.warn('[DOC SERVICE] gemini-1.5-flash-latest failed, trying gemini-pro...');
-          const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-          result = await model.generateContent(prompt);
+    for (const modelName of geminiModels) {
+      try {
+        result = await limiter.schedule(() =>
+          genAI.models.generateContent({
+            model: modelName,
+            contents: prompt,
+          })
+        );
+        break;
+      } catch (err) {
+        console.warn(`[DOC SERVICE] Model ${modelName} failed:`, err.message);
+
+        // Stop fallbacks immediately on 429 rate limit
+        const errMsg = err.message || '';
+        const isRateLimit =
+          errMsg.includes('429') ||
+          errMsg.toLowerCase().includes('quota') ||
+          errMsg.toLowerCase().includes('rate limit') ||
+          errMsg.toLowerCase().includes('resource_exhausted') ||
+          err.status === 429;
+
+        if (isRateLimit) {
+          throw err;
         }
-      } else {
-        throw err;
       }
     }
-    return result.response.text();
+
+    if (!result) {
+      throw new Error('No Gemini model available.');
+    }
+
+    const responseText = typeof result.text === 'function' ? result.text() : result.text;
+
+    // Cache the successful documentation result in MongoDB
+    await Documentation.findOneAndUpdate(
+      { repositoryId, type: docType },
+      { content: responseText },
+      { upsert: true, new: true }
+    );
+
+    return responseText;
   } catch (err) {
+    const errMsg = err.message || '';
+    const isRateLimit =
+      errMsg.includes('429') ||
+      errMsg.toLowerCase().includes('quota') ||
+      errMsg.toLowerCase().includes('rate limit') ||
+      errMsg.toLowerCase().includes('resource_exhausted') ||
+      err.status === 429;
+
+    // Bubble up 429 rate limit errors so the controller can handle them gracefully
+    if (isRateLimit) {
+      throw err;
+    }
+
     console.warn('[DOC SERVICE] Gemini gen failure, returning template fallback:', err.message);
     return getFallbackDoc(repo, type);
   }

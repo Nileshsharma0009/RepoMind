@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import path from 'path';
 
 dotenv.config();
 
@@ -17,33 +16,18 @@ async function run() {
       return;
     }
 
-    console.log('Latest Repository:', repo.fullName);
-    console.log('Status:', repo.status);
-    console.log('File Count:', repo.fileCount);
-    console.log('Error Message:', repo.errorMessage);
+    console.log('Repository:', repo.fullName);
+    const targetPath = 'backend/src/middleware/auth.middleware.js';
+    const file = repo.parsedData?.files?.find((f) => f.path === targetPath);
     
-    if (repo.parsedData && repo.parsedData.files && repo.parsedData.files.length > 0) {
-      console.log('\nSample Files and Imports:');
-      const sampleFiles = repo.parsedData.files.filter(f => f.imports && f.imports.length > 0).slice(0, 10);
-      
-      if (sampleFiles.length === 0) {
-        console.log('No files with imports found. Listing first 10 files overall:');
-        repo.parsedData.files.slice(0, 10).forEach(f => {
-          console.log(`- Path: ${f.path}`);
-          console.log(`  Type: ${f.type}`);
-          console.log(`  Imports:`, f.imports);
-          console.log(`  Exports:`, f.exports);
-        });
-      } else {
-        sampleFiles.forEach(f => {
-          console.log(`- Path: ${f.path}`);
-          console.log(`  Type: ${f.type}`);
-          console.log(`  Imports:`, f.imports);
-          console.log(`  Exports:`, f.exports);
-        });
-      }
+    if (file) {
+      console.log('FOUND FILE IN DATABASE:');
+      console.log(JSON.stringify(file, null, 2));
     } else {
-      console.log('No parsed files found in the latest repository.');
+      console.log(`FILE NOT FOUND: "${targetPath}"`);
+      console.log('Existing files starting with "backend/src/middleware":');
+      const filtered = repo.parsedData?.files?.filter(f => f.path.startsWith('backend/src/middleware')) || [];
+      filtered.forEach(f => console.log(`- ${f.path} (sha: ${f.sha})`));
     }
 
   } catch (err) {
