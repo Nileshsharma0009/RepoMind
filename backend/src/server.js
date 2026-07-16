@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
     try {
+        validateEnv();
         await ConnectDB();
 
         app.listen(PORT, () => {
