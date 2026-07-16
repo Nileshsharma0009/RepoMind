@@ -2,6 +2,7 @@ import Repository from '../models/Repository.js';
 import Documentation from '../models/Documentation.js';
 import env from '../config/env.js';
 import { GoogleGenAI } from '@google/genai';
+import { fetchFileContent } from './github.service.js';
 import limiter from '../utils/limiter.js';
 
 const getGenAI = () => {
@@ -174,7 +175,7 @@ Initial launch specifications for the codebase **${repo.name}**.
   }
 };
 
-export const generateDocumentation = async (repositoryId, type) => {
+export const generateDocumentation = async (repositoryId, type, accessToken) => {
   const repo = await Repository.findById(repositoryId);
   if (!repo) {
     throw new Error('Repository not found.');
@@ -194,6 +195,48 @@ export const generateDocumentation = async (repositoryId, type) => {
 
   const filesList = repo.parsedData?.files || [];
   const listStr = filesList.map(f => `- File: ${f.path} (Type: ${f.type}, Extension: ${f.extension})`).slice(0, 60).join('\n');
+
+  // Gather specific root files metadata (dependencies, packages, build configurations)
+  let rootMetadata = '';
+  if (accessToken) {
+    try {
+      const packageFiles = filesList.filter(f => f.name.toLowerCase() === 'package.json');
+      for (const pf of packageFiles) {
+        try {
+          const rawContent = await fetchFileContent(repo.owner, repo.name, pf.sha, accessToken);
+          const pkg = JSON.parse(rawContent);
+          const deps = Object.keys(pkg.dependencies || {}).join(', ');
+          const devDeps = Object.keys(pkg.devDependencies || {}).join(', ');
+          const scripts = Object.entries(pkg.scripts || {}).map(([k, v]) => `"${k}": "${v}"`).join(', ');
+          rootMetadata += `\n### Package config file: "${pf.path}":\n- Package Name: ${pkg.name || 'unnamed'}\n- Dependencies: ${deps || 'none'}\n- Dev Dependencies: ${devDeps || 'none'}\n- Run Scripts: ${scripts || 'none'}\n`;
+        } catch (err) {
+          console.warn(`[DOC SERVICE] Failed to parse package.json at ${pf.path}:`, err.message);
+        }
+      }
+
+      const envFiles = filesList.filter(f => 
+        f.name.toLowerCase().includes('.env.example') || 
+        f.name.toLowerCase().includes('.env.sample') ||
+        f.name.toLowerCase() === '.env'
+      );
+      for (const ef of envFiles) {
+        try {
+          const rawContent = await fetchFileContent(repo.owner, repo.name, ef.sha, accessToken);
+          const envKeys = rawContent
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line && !line.startsWith('#') && line.includes('='))
+            .map(line => line.split('=')[0])
+            .join(', ');
+          rootMetadata += `\n### Discovered Environment Keys in: "${ef.path}":\n- Keys: ${envKeys || 'none'}\n`;
+        } catch (err) {
+          console.warn(`[DOC SERVICE] Failed to read environment keys from ${ef.path}:`, err.message);
+        }
+      }
+    } catch (crawlErr) {
+      console.warn('[DOC SERVICE] Failed to gather setup metadata details:', crawlErr.message);
+    }
+  }
 
   let prompt = '';
   switch (docType) {
@@ -227,14 +270,31 @@ Explain the purpose of directories like frontend, backend, routes, controllers, 
       break;
 
     case 'setup':
-      prompt = `Write an Installation and Setup guide for "${repo.name}".
-Based on this codebase file overview:
+      prompt = `Write a highly specific, customized Installation and Setup guide for "${repo.name}".
+We analyzed the codebase configurations and found the following package specifications and environment requirements:
+${rootMetadata || 'No specific root configurations parsed.'}
+
+Also use this codebase file list:
 ${listStr}
-Structure step-by-step setup guides (npm install, local environment setups, Mongo connections).`;
+
+Requirements:
+- Focus ONLY on the actual tech stack, packages, scripts, and environment keys defined in the metadata. Do not suggest generic setup technologies that do not exist in this project.
+- Detail step-by-step instructions on cloning the repo, running package installation commands (like npm install or yarn install based on the package files), configuring the exact environment keys listed above, and launching the services in development mode using the actual scripts found in package.json.
+- Make it a complete, production-grade guide using professional markdown.`;
       break;
 
     case 'deployment':
-      prompt = `Write a production Deployment Guide for "${repo.name}". Focus on configuring production DBs, environment keys, running build commands, and hosting details.`;
+      prompt = `Write a production Deployment Guide for the repository "${repo.name}".
+Use the discovered package configurations and environments:
+${rootMetadata || 'No specific root configurations parsed.'}
+
+Also use this codebase file list:
+${listStr}
+
+Requirements:
+- Focus ONLY on the correct way to build and deploy this specific tech stack. Detail how to build (e.g. run production build commands from package.json) and serve frontend/backend folders.
+- Explain how to configure production databases, environment variables (use the exact key names found in our env configurations), and reverse proxy API endpoints.
+- Recommend hosting solutions matching this tech stack (e.g., Node/Express backend, React frontend on Render/Vercel/AWS/Docker, etc.).`;
       break;
 
     case 'architecture':

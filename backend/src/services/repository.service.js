@@ -1,5 +1,6 @@
 import Repository from '../models/Repository.js';
 import User from '../models/User.js';
+import Documentation from '../models/Documentation.js';
 import { fetchRepoTree, fetchFileContent } from './github.service.js';
 import { classifyFile, parseImportsAndExports } from './parser.service.js';
 import { indexRepositoryChunks } from './indexing.service.js';
@@ -131,6 +132,13 @@ export const indexRepositoryBackground = async (repositoryId, userId) => {
     if (!repo) {
       console.error(`[PARSER] Repository not found: ${repositoryId}`);
       return;
+    }
+
+    // Clear old cached documentation to allow fresh, accurate regeneration
+    try {
+      await Documentation.deleteMany({ repositoryId });
+    } catch (clearErr) {
+      console.warn(`[PARSER] Failed to clear documentation cache:`, clearErr.message);
     }
 
     // Update status to indexing

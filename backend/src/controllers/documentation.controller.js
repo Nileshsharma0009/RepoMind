@@ -1,4 +1,5 @@
 import { generateDocumentation } from '../services/documentation.service.js';
+import User from '../models/User.js';
 
 export const getDocumentation = async (req, res, next) => {
   try {
@@ -11,7 +12,10 @@ export const getDocumentation = async (req, res, next) => {
       });
     }
 
-    const content = await generateDocumentation(repositoryId, type);
+    const user = await User.findById(req.user._id).select('+githubAccessToken');
+    const accessToken = user?.githubAccessToken;
+
+    const content = await generateDocumentation(repositoryId, type, accessToken);
 
     res.status(200).json({
       status: 'success',

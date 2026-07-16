@@ -36,6 +36,11 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    role: {
+      type: String,
+      enum: ['user', 'admin'],
+      default: 'user',
+    },
     lastLoginAt: {
       type: Date,
       default: Date.now,
@@ -56,6 +61,7 @@ userSchema.methods.toPublicProfile = function toPublicProfile() {
     avatar: this.avatar,
     bio: this.bio,
     publicRepos: this.publicRepos,
+    role: this.role || 'user',
     lastLoginAt: this.lastLoginAt,
     createdAt: this.createdAt,
   };
