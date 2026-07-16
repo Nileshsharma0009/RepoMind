@@ -77,32 +77,26 @@ export const generateChatAnswer = async (repositoryId, message, chatHistory = []
       throw new Error('Repository not found.');
     }
 
-    const pineconeApiKey = process.env.PINECONE_API_KEY || env.pineconeApiKey;
-    let vectorMatches = null;
+    let matchedChunks = [];
 
-    if (pineconeApiKey && pineconeApiKey !== 'dummy_pinecone_api_key') {
-      try {
-        console.log('[AI-CHAT] Generating query embedding for vector search...');
-        const queryVector = await getEmbedding(message);
-        if (queryVector) {
-          console.log('[AI-CHAT] Querying Pinecone vector index...');
-          vectorMatches = await queryVectors(queryVector, repositoryId, 6);
-        }
-      } catch (vectorErr) {
-        console.warn('[AI-CHAT] Vector search failed, falling back to local MongoDB search:', vectorErr.message);
+    // Try vector-based RAG first
+    const embedding = await getEmbedding(message);
+    if (embedding && embedding.length > 0) {
+      console.log('[AI-CHAT] Performing vector search query in Pinecone...');
+      const matches = await queryVectors(embedding, String(repositoryId), 6);
+      if (matches && matches.length > 0) {
+        matchedChunks = matches.map((m) => ({
+          filePath: m.metadata.filePath,
+          startLine: m.metadata.startLine,
+          endLine: m.metadata.endLine,
+          content: m.metadata.content,
+        }));
       }
     }
 
-    if (vectorMatches && vectorMatches.length > 0) {
-      console.log(`[AI-CHAT] Retrieved ${vectorMatches.length} matching code blocks from Pinecone.`);
-      matchedChunks = vectorMatches.map((match) => ({
-        filePath: match.metadata.filePath,
-        startLine: match.metadata.startLine,
-        endLine: match.metadata.endLine,
-        content: match.metadata.content,
-      }));
-    } else {
-      console.log('[AI-CHAT] Querying codebase segments directly via local MongoDB search...');
+    // Fall back to keyword match in MongoDB if Pinecone is inactive or returns nothing
+    if (matchedChunks.length === 0) {
+      console.log('[AI-CHAT] Falling back to MongoDB keyword-regex indexing search...');
       const localMatches = await searchLocalChunks(repositoryId, message, 6);
       matchedChunks = localMatches.map((m) => ({
         filePath: m.filePath,
@@ -110,8 +104,9 @@ export const generateChatAnswer = async (repositoryId, message, chatHistory = []
         endLine: m.endLine,
         content: m.content,
       }));
-      console.log(`[AI-CHAT] Retrieved ${matchedChunks.length} matching code blocks from MongoDB.`);
     }
+
+    console.log(`[AI-CHAT] Retrieved ${matchedChunks.length} matching code blocks.`);
 
     // 1. Build prompt context
     let contextStr = '';
@@ -220,43 +215,7 @@ Constraints:
     };
   } catch (err) {
     console.error('[AI-CHAT] Chat generation failed:', err.message);
-    const localMatchesList = references
-      .map((r) => `- [${r.filePath.split('/').pop()}: L${r.startLine}-${r.endLine}](repomind:///${r.filePath}#L${r.startLine})`)
-      .join('\n');
-
-    const errMsg = err.message || '';
-    const isRateLimit =
-      errMsg.includes('429') ||
-      errMsg.toLowerCase().includes('quota') ||
-      errMsg.toLowerCase().includes('rate limit') ||
-      errMsg.toLowerCase().includes('resource_exhausted') ||
-      err.status === 429;
-
-    let errorDetailText = `generateContent failed: **${err.message}**`;
-    if (isRateLimit) {
-      const matchSeconds =
-        errMsg.match(/retry(?:\s+in)?\s+([\d\.]+)\s*s/i) ||
-        errMsg.match(/retry\s+after\s+(\d+)\s*s/i) ||
-        errMsg.match(/retry(?:\s+in)?\s+(\d+)\s*seconds/i);
-      const seconds = matchSeconds ? Math.ceil(parseFloat(matchSeconds[1])) : 60;
-      errorDetailText = `### ⚠️ Gemini API Rate Limit Reached\nYou have exceeded the Gemini free-tier rate limits. Please try again in **${seconds} seconds**.`;
-    }
-
-    return {
-      answer: isRateLimit
-        ? errorDetailText
-        : `### ⚠️ Gemini API Resolution Failure
-${errorDetailText}
-
-**Diagnostics Guide**:
-1. Confirm that your \`GEMINI_API_KEY\` is loaded and valid in your \`.env\` file.
-2. Verify that the **Generative Language API** is enabled in your Google AI Studio or Google Cloud Console.
-
-**Offline Local Code Matches (${references.length})**:
-Despite the API offline status, here are code sections from this codebase related to your question:
-${localMatchesList || '_No keyword occurrences matched in local files._'}`,
-      references,
-    };
+    throw err;
   }
 };
 

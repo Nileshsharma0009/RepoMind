@@ -388,7 +388,7 @@ Ready to run analysis as soon as keys are configured.`,
     });
   } catch (error) {
     console.error('[PM CONTROLLER] Agent run failed:', error.message);
-    
+
     const errMsg = error.message || '';
     const isRateLimit =
       errMsg.includes('429') ||
