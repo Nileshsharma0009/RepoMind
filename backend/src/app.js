@@ -9,6 +9,7 @@ import githubRoutes from './routes/github.routes.js';
 import repositoryRoutes from './routes/repository.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import pmRoutes from './routes/pm.routes.js';
+import adminRoutes from './routes/admin.routes.js';
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use('/api/github', githubRoutes);
 app.use('/api/repositories', repositoryRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/pm', pmRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use((req, res, next) => {
   res.status(404);

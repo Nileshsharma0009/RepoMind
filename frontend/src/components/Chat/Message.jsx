@@ -1,5 +1,5 @@
-import React from 'react';
-import { User, Brain, FileCode, CornerDownRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Brain, FileCode, CornerDownRight, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -8,6 +8,14 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 export default function Message({ message, onReferenceClick }) {
   const isUser = message.role === 'user';
   const references = message.references || [];
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (!message.content) return;
+    navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className={`flex gap-3 max-w-[85%] ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}>
@@ -19,16 +27,27 @@ export default function Message({ message, onReferenceClick }) {
       </div>
 
       <div className="space-y-1">
-        {/* Message bubble */}
-        <div className={`px-4 py-3 rounded-2xl border text-left ${
+        <div className={`relative group px-4 py-3 rounded-2xl border text-left ${
           isUser
             ? 'bg-primary/10 border-primary/25 rounded-tr-none text-white'
             : 'bg-neutral-900/40 border-neutral-850 rounded-tl-none text-neutral-300'
         }`}>
+          <button
+            onClick={handleCopy}
+            className="absolute right-2.5 top-2.5 p-1 rounded bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-800 transition-all z-10"
+            title="Copy message"
+          >
+            {copied ? (
+              <Check className="w-3 h-3 text-emerald-400" />
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
+          </button>
+
           {isUser ? (
-            <p className="text-xs leading-relaxed whitespace-pre-wrap">{message.content}</p>
+            <p className="text-xs leading-relaxed whitespace-pre-wrap pr-6">{message.content}</p>
           ) : (
-            <div className="prose prose-invert prose-xs max-w-none text-left select-text">
+            <div className="prose prose-invert prose-xs max-w-none text-left select-text pr-6">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{

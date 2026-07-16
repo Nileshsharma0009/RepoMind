@@ -12,6 +12,7 @@ import {
   LogOut,
   Brain,
   Sparkles,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useRepository } from '../../context/RepositoryContext.jsx';
@@ -103,6 +104,22 @@ export default function Sidebar({ collapsed }) {
             {label}
           </NavLink>
         ))}
+
+        {user?.role === 'admin' && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border border-transparent ${
+                isActive
+                  ? 'bg-amber-600/15 text-amber-300 border-amber-500/20'
+                  : 'text-amber-500/80 hover:text-amber-300 hover:bg-neutral-900/60'
+              }`
+            }
+          >
+            <Shield className="w-4.5 h-4.5 shrink-0 text-amber-500" />
+            <span>Admin Panel</span>
+          </NavLink>
+        )}
       </nav>
 
       {user && (

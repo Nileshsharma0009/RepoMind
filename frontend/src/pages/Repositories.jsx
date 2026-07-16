@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import MainLayout from '../components/Layout/MainLayout.jsx';
 import { useRepository } from '../context/RepositoryContext.jsx';
 import api from '../services/api.js';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
   GitBranch,
@@ -33,6 +34,7 @@ export default function Repositories() {
   const [githubError, setGithubError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [connectingId, setConnectingId] = useState(null);
+  const [disconnectingRepo, setDisconnectingRepo] = useState(null);
 
   // Fetch repos from GitHub via our backend endpoint
   const fetchGithubRepos = async () => {
@@ -64,14 +66,8 @@ export default function Repositories() {
     }
   };
 
-  const handleDisconnect = async (id, name) => {
-    if (window.confirm(`Are you sure you want to disconnect ${name}? This will remove all parsed data and indexing memory.`)) {
-      try {
-        await disconnectRepo(id);
-      } catch (err) {
-        alert('Failed to disconnect repository: ' + err.message);
-      }
-    }
+  const handleDisconnect = (id, name) => {
+    setDisconnectingRepo({ id, name });
   };
 
   const handleSync = async (id) => {
@@ -303,6 +299,63 @@ export default function Repositories() {
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {disconnectingRepo && (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[99999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-neutral-950 border border-neutral-850 rounded-2xl w-full max-w-md overflow-hidden shadow-theme-glow text-left flex flex-col relative"
+            >
+              {/* Top alert line */}
+              <div className="h-1.5 w-full bg-red-500" />
+              
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-955/20 border border-red-500/30 flex items-center justify-center text-red-500 shrink-0">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white font-display">Disconnect Repository?</h3>
+                    <p className="text-[10px] text-neutral-450 mt-1 leading-normal">
+                      This action will wipe all parsed indexing schemas from our memory database.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-neutral-900/40 border border-neutral-900/60 p-3.5 rounded-xl text-xs leading-relaxed text-neutral-350 font-sans">
+                  Are you sure you want to disconnect <span className="font-semibold text-white">{disconnectingRepo.name}</span>? This will remove all parsed data and indexing memory.
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-2">
+                  <button
+                    onClick={() => setDisconnectingRepo(null)}
+                    className="px-4 py-1.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-850 text-neutral-400 hover:text-white rounded-lg text-xs transition-all font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const { id } = disconnectingRepo;
+                      setDisconnectingRepo(null);
+                      try {
+                        await disconnectRepo(id);
+                      } catch (err) {
+                        alert('Failed to disconnect repository: ' + err.message);
+                      }
+                    }}
+                    className="px-4 py-1.5 bg-red-650 hover:bg-red-600 text-white rounded-lg text-xs transition-all font-semibold shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </MainLayout>
   );
 }

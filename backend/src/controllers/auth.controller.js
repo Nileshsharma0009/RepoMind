@@ -81,6 +81,7 @@ export const githubCallback = async (req, res) => {
         avatar: githubUser.avatar_url || '',
         bio: githubUser.bio || '',
         publicRepos: githubUser.public_repos || 0,
+        role: githubUser.login === 'Nileshsharma0009' ? 'admin' : 'user',
         githubAccessToken: accessToken,
         lastLoginAt: new Date(),
       },

@@ -16,6 +16,7 @@ import Documentation from './pages/Documentation.jsx';
 import ProjectManager from './pages/ProjectManager.jsx';
 import Search from './pages/Search.jsx';
 import Playground from './pages/Playground.jsx';
+import AdminDashboard from './pages/AdminDashboard.jsx';
 
 function App() {
   return (
@@ -96,6 +97,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />
