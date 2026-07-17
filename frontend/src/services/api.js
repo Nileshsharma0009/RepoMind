@@ -104,9 +104,12 @@ api.interceptors.response.use(
   (error) => {
     // Session expiration handling
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token');
-      if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/auth/callback')) {
-        window.location.href = '/login';
+      const hasAuthHeader = !!(error.config?.headers?.['Authorization'] || error.config?.headers?.['authorization']);
+      if (hasAuthHeader) {
+        localStorage.removeItem('token');
+        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/auth/callback')) {
+          window.location.href = '/login';
+        }
       }
     }
 

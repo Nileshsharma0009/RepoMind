@@ -7,5 +7,6 @@ export const getMe = () => api.get('/auth/me');
 export const logout = () => api.post('/auth/logout');
 
 export const getGitHubLoginUrl = () => {
-  window.location.href = '/api/auth/github';
+  const baseUrl = import.meta.env.VITE_API_URL || '/api';
+  window.location.href = `${baseUrl}/auth/github`;
 };

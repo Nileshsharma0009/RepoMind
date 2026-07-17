@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api.js';
+import { useAuth } from './AuthContext.jsx';
 
 const RepositoryContext = createContext(null);
 
@@ -111,15 +112,24 @@ export function RepositoryProvider({ children }) {
     }
   };
 
-  // Load connected repos on mount
+  const { isAuthenticated } = useAuth();
+
+  // Load connected repos when authenticated, clear when not
   useEffect(() => {
-    fetchConnectedRepos();
-  }, [fetchConnectedRepos]);
+    if (isAuthenticated) {
+      fetchConnectedRepos();
+    } else {
+      setConnectedRepos([]);
+      setActiveRepo(null);
+    }
+  }, [isAuthenticated, fetchConnectedRepos]);
 
   // Load details whenever active ID changes
   useEffect(() => {
-    fetchActiveRepoDetails(activeRepoId);
-  }, [activeRepoId, fetchActiveRepoDetails]);
+    if (isAuthenticated && activeRepoId) {
+      fetchActiveRepoDetails(activeRepoId);
+    }
+  }, [isAuthenticated, activeRepoId, fetchActiveRepoDetails]);
 
   // Background polling for repo status (indexing / connected)
   useEffect(() => {
