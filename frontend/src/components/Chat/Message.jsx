@@ -5,6 +5,8 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
+import logo from '../../assets/logos/logo1.png';
+
 export default function Message({ message, onReferenceClick }) {
   const isUser = message.role === 'user';
   const references = message.references || [];
@@ -184,10 +186,10 @@ export default function Message({ message, onReferenceClick }) {
   return (
     <div className={`flex gap-3 max-w-[85%] ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}>
       {/* Icon Avatar */}
-      <div className={`w-8 h-8 rounded-full border flex items-center justify-center shrink-0 ${
-        isUser ? 'bg-primary/15 border-primary/20 text-primary' : 'bg-purple-950/20 border-purple-500/20 text-purple-400'
+      <div className={`w-8 h-8 rounded-full border flex items-center justify-center shrink-0 overflow-hidden ${
+        isUser ? 'bg-primary/15 border-primary/20 text-primary' : 'bg-neutral-950 border-purple-500/20'
       }`}>
-        {isUser ? <User className="w-4 h-4" /> : <Brain className="w-4 h-4" />}
+        {isUser ? <User className="w-4 h-4" /> : <img src={logo} alt="RepoMind Logo" className="w-full h-full object-contain" />}
       </div>
 
       <div className="space-y-1">

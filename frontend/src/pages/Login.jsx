@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Github, Brain, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
+import logo from '../assets/logos/logo1.png';
+
 export default function Login() {
   const { loginWithGitHub, oauthConfigured, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
@@ -28,7 +30,7 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-md">
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-300 mb-8 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-350 mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to home
@@ -36,8 +38,8 @@ export default function Login() {
 
         <div className="glass-panel rounded-2xl p-8 shadow-glass-glow">
           <div className="flex flex-col items-center text-center mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-purple-600 flex items-center justify-center mb-4 shadow-glass-glow">
-              <Brain className="w-7 h-7 text-white" />
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden bg-neutral-950 border border-neutral-900 mb-4 shadow-glass-glow">
+              <img src={logo} alt="RepoMind Logo" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-2xl font-display font-bold text-white">Welcome to RepoMind</h1>
             <p className="text-sm text-neutral-400 mt-2">

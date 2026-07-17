@@ -18,6 +18,8 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { useRepository } from '../../context/RepositoryContext.jsx';
 import ThemeSelector from '../Common/ThemeSelector.jsx';
 
+import logo from '../../assets/logos/logo1.png';
+
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/repositories', icon: FolderGit2, label: 'Repositories' },
@@ -46,8 +48,8 @@ export default function Sidebar({ collapsed }) {
     }`}>
       <div className="p-5 border-b border-neutral-800/60">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center shadow-glass-glow">
-            <Brain className="w-5 h-5 text-white" />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden bg-neutral-950 border border-neutral-800 shadow-glass-glow">
+            <img src={logo} alt="RepoMind Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <h1 className="font-display font-bold text-white text-lg leading-tight">RepoMind</h1>
