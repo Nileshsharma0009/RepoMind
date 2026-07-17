@@ -105,22 +105,38 @@ Provide your output ONLY as a valid JSON array of objects conforming exactly to 
   }
 ]
 `;
-          const geminiResult = await limiter.schedule(() =>
-            genAI.models.generateContent({
-              model: 'gemini-2.5-flash',
-              contents: pmPrompt,
-            })
-          );
-          const responseText = typeof geminiResult.text === 'function' ? geminiResult.text() : geminiResult.text;
-          const cleanText = responseText.replace(/```json/i, '').replace(/```/g, '').trim();
-          const parsed = JSON.parse(cleanText);
-          if (Array.isArray(parsed)) {
-            parsed.forEach(item => {
-              priorityMap[item.number] = {
-                priority: item.priority || 'P2',
-                rationale: item.rationale || 'Assigned default priority.',
-              };
-            });
+          const geminiModels = [
+            'gemini-3.5-flash',
+            'gemini-3.1-flash-lite',
+            'gemini-2.5-flash',
+            'gemini-2.0-flash',
+          ];
+          let geminiResult;
+          for (const modelName of geminiModels) {
+            try {
+              geminiResult = await limiter.schedule(() =>
+                genAI.models.generateContent({
+                  model: modelName,
+                  contents: pmPrompt,
+                })
+              );
+              break;
+            } catch (err) {
+              console.warn(`[PM CONTROLLER] Model ${modelName} failed to prioritize:`, err.message);
+            }
+          }
+          if (geminiResult) {
+            const responseText = typeof geminiResult.text === 'function' ? geminiResult.text() : geminiResult.text;
+            const cleanText = responseText.replace(/```json/i, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleanText);
+            if (Array.isArray(parsed)) {
+              parsed.forEach(item => {
+                priorityMap[item.number] = {
+                  priority: item.priority || 'P2',
+                  rationale: item.rationale || 'Assigned default priority.',
+                };
+              });
+            }
           }
         } catch (err) {
           console.warn('[PM CONTROLLER] Failed to prioritize issues using AI:', err.message);
@@ -344,6 +360,8 @@ Ready to run analysis as soon as keys are configured.`,
     }
 
     const geminiModels = [
+      'gemini-3.5-flash',
+      'gemini-3.1-flash-lite',
       'gemini-2.5-flash',
       'gemini-2.0-flash',
     ];

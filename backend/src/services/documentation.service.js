@@ -318,6 +318,8 @@ Explain how routes, controllers, services, and models interact. Frame it as a Cl
 
   try {
     const geminiModels = [
+      'gemini-3.5-flash',
+      'gemini-3.1-flash-lite',
       'gemini-2.5-flash',
       'gemini-2.0-flash',
     ];
