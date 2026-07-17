@@ -6,7 +6,7 @@ import TypingAnimation from '../components/Chat/TypingAnimation.jsx';
 import CodeExplorer from '../components/Monaco/CodeExplorer.jsx';
 import { useRepository } from '../context/RepositoryContext.jsx';
 import api from '../services/api.js';
-import { MessageSquare, Bot, AlertCircle, LayoutGrid, Terminal } from 'lucide-react';
+import { MessageSquare, Bot, AlertCircle, LayoutGrid, Terminal, Maximize2, Minimize2 } from 'lucide-react';
 
 export default function Chat() {
   const { activeRepo, activeRepoLoading } = useRepository();
@@ -26,6 +26,29 @@ export default function Chat() {
   const containerRef = useRef(null);
   const [leftWidth, setLeftWidth] = useState(45); // default split: 45% left
   const [isDragging, setIsDragging] = useState(false);
+
+  const [isFullScreen, setIsFullScreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleFullscreenToggle = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error('Failed to trigger native browser fullscreen:', err.message);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   const handleMouseDown = (e) => {
     e.preventDefault();
@@ -222,7 +245,12 @@ Ask me anything, and click on citations to inspect the source code instantly!`,
           </p>
         </div>
       ) : (
-        <div ref={containerRef} className="flex h-[calc(100vh-11rem)] gap-0 relative select-none">
+        <div
+          ref={containerRef}
+          className={`flex gap-0 relative select-none transition-all duration-300 ${
+            isFullScreen ? 'bg-neutral-950 w-full h-full p-4 z-50' : 'h-[calc(100vh-11rem)]'
+          }`}
+        >
           {/* Transparent drag overlay to capture mouse events over Monaco */}
           {isDragging && (
             <div className="fixed inset-0 z-[99999] cursor-col-resize" />
@@ -234,9 +262,19 @@ Ask me anything, and click on citations to inspect the source code instantly!`,
             style={{ width: `${leftWidth}%` }}
           >
             {/* Header */}
-            <div className="p-4 bg-neutral-950/80 border-b border-neutral-900 flex items-center gap-2 select-none">
-              <MessageSquare className="w-4 h-4 text-primary" />
-              <span className="text-xs font-semibold text-white">Discussion logs</span>
+            <div className="p-4 bg-neutral-950/80 border-b border-neutral-900 flex items-center justify-between select-none">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold text-white">Discussion logs</span>
+              </div>
+              <button
+                onClick={handleFullscreenToggle}
+                className="flex items-center gap-1.5 px-3 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-300 hover:text-white rounded-md text-[10px] font-mono uppercase tracking-wider font-semibold transition-colors shrink-0"
+                title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
+              >
+                {isFullScreen ? <Minimize2 className="w-3.5 h-3.5 text-amber-500" /> : <Maximize2 className="w-3.5 h-3.5 text-primary" />}
+                <span>{isFullScreen ? 'Exit' : 'Fullscreen'}</span>
+              </button>
             </div>
 
             {/* Chat Messages Log */}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import MainLayout from '../components/Layout/MainLayout.jsx';
 import { useRepository } from '../context/RepositoryContext.jsx';
 import api from '../services/api.js';
@@ -16,6 +16,8 @@ import {
   ChevronDown,
   Play,
   FileText,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
 const agentsList = [
@@ -86,6 +88,30 @@ export default function Playground() {
   const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleFullscreenToggle = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error('Failed to trigger native browser fullscreen:', err.message);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   // Assemble directory tree
   const fileTree = useMemo(() => {
@@ -327,12 +353,27 @@ export default function Playground() {
             </div>
 
             {/* Bottom row: agent reports container */}
-            <div className="flex-1 glass-panel border border-neutral-850 rounded-xl flex flex-col overflow-hidden">
-              <div className="p-3 bg-neutral-950/80 border-b border-neutral-900 flex items-center gap-2 shrink-0">
-                <FileText className="w-4 h-4 text-primary" />
-                <span className="text-xs font-bold text-white uppercase font-mono tracking-wider">
-                  Diagnostics Terminal Output
-                </span>
+            <div
+              ref={containerRef}
+              className={`flex-1 glass-panel border border-neutral-850 rounded-xl flex flex-col overflow-hidden transition-all duration-300 ${
+                isFullScreen ? 'bg-neutral-950 w-full h-full p-4 z-50' : ''
+              }`}
+            >
+              <div className="p-3 bg-neutral-950/80 border-b border-neutral-900 flex items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold text-white uppercase font-mono tracking-wider">
+                    Diagnostics Terminal Output
+                  </span>
+                </div>
+                <button
+                  onClick={handleFullscreenToggle}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-300 hover:text-white rounded-md text-[10px] font-mono uppercase tracking-wider font-semibold transition-colors shrink-0"
+                  title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                >
+                  {isFullScreen ? <Minimize2 className="w-3.5 h-3.5 text-amber-500" /> : <Maximize2 className="w-3.5 h-3.5 text-primary" />}
+                  <span>{isFullScreen ? 'Exit' : 'Fullscreen'}</span>
+                </button>
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 bg-neutral-950/20 select-text relative">

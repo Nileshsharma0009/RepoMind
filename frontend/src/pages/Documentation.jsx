@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -22,6 +22,8 @@ import {
   FolderTree,
   Globe,
   Sparkles,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
 const categories = [
@@ -59,6 +61,30 @@ export default function Documentation() {
 
   // Commit Modal States
   const [showCommitModal, setShowCommitModal] = useState(false);
+
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleFullscreenToggle = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error('Failed to trigger native browser fullscreen:', err.message);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   const fetchDocument = async () => {
     if (!activeRepo) return;
@@ -218,13 +244,29 @@ export default function Documentation() {
           </div>
 
           {/* Right panel markdown render preview */}
-          <div className="lg:col-span-3 glass-panel rounded-xl flex flex-col overflow-hidden h-full border border-neutral-850">
+          <div
+            ref={containerRef}
+            className={`lg:col-span-3 glass-panel rounded-xl flex flex-col overflow-hidden border border-neutral-850 transition-all duration-300 ${
+              isFullScreen ? 'bg-neutral-950 w-full h-full p-4 z-50' : 'h-full'
+            }`}
+          >
             {/* Header controls bar */}
             <div className="p-3 bg-neutral-950/80 border-b border-neutral-900 flex items-center justify-between gap-4 shrink-0">
               <span className="text-xs font-bold text-white flex items-center gap-1.5 uppercase font-mono tracking-wider">
                 <FileText className="w-4 h-4 text-primary" />
                 Document Compiler {isEditing && <span className="text-[10px] text-primary/80 lowercase font-normal">(Editing Mode)</span>}
-              </span>              {content && (
+              </span>
+              <div className="flex items-center gap-2">
+                {/* Fullscreen Button */}
+                <button
+                  onClick={handleFullscreenToggle}
+                  className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-400 hover:text-white rounded-lg text-xs transition-colors flex items-center gap-1 shrink-0"
+                  title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                >
+                  {isFullScreen ? <Minimize2 className="w-3.5 h-3.5 text-amber-500" /> : <Maximize2 className="w-3.5 h-3.5 text-primary" />}
+                  <span>{isFullScreen ? 'Exit' : 'Fullscreen'}</span>
+                </button>
+                {content && (
                 <div className="flex items-center gap-2 font-display">
                   {isEditing ? (
                     <>
@@ -273,6 +315,7 @@ export default function Documentation() {
                   )}
                 </div>
               )}
+              </div>
             </div>
 
             {/* Document display board */}
