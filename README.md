@@ -1,4 +1,4 @@
-# 🧠 RepoMind
+# RepoMind
 
 ### *AI-Powered Engineering Memory & Project Intelligence Platform*
 
@@ -10,22 +10,22 @@ RepoMind is designed to act as the permanent engineering memory of a software pr
 
 ---
 
-## 🧭 Table of Contents
-1. [The Actual Problem](#-the-actual-problem)
-2. [The Solution: How RepoMind Solves It](#-the-solution-how-repomind-solves-it)
-3. [Core Feature & UI Showcase](#-core-feature--ui-showcase)
-4. [Multi-Agent Orchestration & Communication](#-multi-agent-orchestration--communication)
-5. [Production-Grade Smoothness & Reliability](#-production-grade-smoothness--reliability)
-6. [System Workflow Diagram](#-system-workflow-diagram)
-7. [Tech Stack](#-tech-stack)
-8. [Getting Started & Local Setup](#-getting-started--local-setup)
+## Table of Contents
+1. [The Actual Problem](#the-actual-problem)
+2. [The Solution: How RepoMind Solves It](#the-solution-how-repomind-solves-it)
+3. [Core Feature & UI Showcase](#core-feature--ui-showcase)
+4. [Multi-Agent Orchestration & Communication](#multi-agent-orchestration--communication)
+5. [Production-Grade Smoothness & Reliability](#production-grade-smoothness--reliability)
+6. [System Workflow Diagram](#system-workflow-diagram)
+7. [Tech Stack](#tech-stack)
+8. [Getting Started & Local Setup](#getting-started--local-setup)
 
 ---
 
-## ⚠️ The Actual Problem
+## The Actual Problem
 
 As codebases grow, engineering knowledge fragments. Developers waste a significant portion of their workdays navigating cognitive load and searching for context:
-* **The Context-Switching Tax:** Developers jump between GitHub issues, pull requests, Slack chats, codebase files, outdated READMEs, and browser windows just to answer a simple question: *"Where is user authentication verified?"*
+* **The Context-Switching Tax:** Developers jump between GitHub issues, pull requests, Slack chats, codebase files, outdated READMEs, and browser windows just to answer a simple question: * "Where is user authentication verified?"*
 * **The "Returning Developer" Dilemma:** When returning to a codebase after months, developers spend hours re-learning:
   * Why a specific architecture pattern was implemented.
   * Which modules handle database transactions.
@@ -34,7 +34,7 @@ As codebases grow, engineering knowledge fragments. Developers waste a significa
 
 ---
 
-## 💡 The Solution: How RepoMind Solves It
+## The Solution: How RepoMind Solves It
 
 RepoMind transforms a static repository into an active **AI Engineering Teammate** with absolute codebase memory:
 1. **Repository Synchronization:** Connects securely via GitHub OAuth to fetch branches, files, pull requests, issues, and commit histories.
@@ -44,18 +44,18 @@ RepoMind transforms a static repository into an active **AI Engineering Teammate
 
 ---
 
-## 🎨 Core Feature & UI Showcase
+## Core Feature & UI Showcase
 
-* **🔐 GitHub OAuth Login:** Secure authorization flow returning JWT-protected sessions.
-* **📊 Repository Dashboard:** Visually track repository statistics, project health, issue timelines, and database state.
-* **💬 AI Chat with Monaco Code Viewer:** Speak directly to your codebase. If the AI references a file (e.g. `auth.js` line 45), clicking the citation automatically opens a **Monaco Code Editor** component in the browser, highlighting the exact line of code.
-* **🗺️ Architecture Explorer:** Generates dynamic Mermaid.js sequence and entity-relationship diagrams illustrating routing flows, authentication cycles, and database relationships.
-* **📝 Automated Documentation Generator:** One-click deployment of professional READMEs, API guides, installation procedures, and changelogs.
-* **💼 Project Manager Dashboard:** Scours commit histories, issues, and TODO comments. Uses AI to prioritize tasks (`P0` to `P3` tags) and details rationales for sprint planning.
+* **GitHub OAuth Login:** Secure authorization flow returning JWT-protected sessions.
+* **Repository Dashboard:** Visually track repository statistics, project health, issue timelines, and database state.
+* **AI Chat with Monaco Code Viewer:** Speak directly to your codebase. If the AI references a file (e.g. `auth.js` line 45), clicking the citation automatically opens a **Monaco Code Editor** component in the browser, highlighting the exact line of code.
+* **Architecture Explorer:** Generates dynamic Mermaid.js sequence and entity-relationship diagrams illustrating routing flows, authentication cycles, and database relationships.
+* **Automated Documentation Generator:** One-click deployment of professional READMEs, API guides, installation procedures, and changelogs.
+* **Project Manager Dashboard:** Scours commit histories, issues, and TODO comments. Uses AI to prioritize tasks (`P0` to `P3` tags) and details rationales for sprint planning.
 
 ---
 
-## 🤖 Multi-Agent Orchestration & Communication
+## Multi-Agent Orchestration & Communication
 
 RepoMind runs a **Coordinated Multi-Agent System** where tasks are processed by specialized agents under a central hub:
 
@@ -72,12 +72,12 @@ RepoMind runs a **Coordinated Multi-Agent System** where tasks are processed by 
 
 ### 1. The Core Agents
 
-* **🧠 Coordinator Agent:** Receives the raw user request, runs intent classification to identify target actions, retrieves vector context from the database, forwards tasks to the matching agent, formats responses, and builds citation references.
-* **💾 Code Memory Agent:** Specializes in cross-module code explanations, syntax navigation, dependency flows, and architectural walkthroughs.
-* **🗺️ Architecture Agent:** Responsible for mapping structural layouts and rendering live flow diagrams using Mermaid.js and ReactFlow.
-* **📊 Project Manager Agent:** Analyzes the backlog, schedules sprints, extracts TODO lines from code, audits code quality, and performs developer performance summaries.
-* **🔍 Semantic Search Agent:** High-speed code locator that queries vector databases to find semantic duplicates or specific system files.
-* **📝 Documentation Agent:** Automatically drafts project modules, API guides, and setup steps tailored to the active folder structures.
+* **Coordinator Agent:** Receives the raw user request, runs intent classification to identify target actions, retrieves vector context from the database, forwards tasks to the matching agent, formats responses, and builds citation references.
+* **Code Memory Agent:** Specializes in cross-module code explanations, syntax navigation, dependency flows, and architectural walkthroughs.
+* **Architecture Agent:** Responsible for mapping structural layouts and rendering live flow diagrams using Mermaid.js and ReactFlow.
+* **Project Manager Agent:** Analyzes the backlog, schedules sprints, extracts TODO lines from code, audits code quality, and performs developer performance summaries.
+* **Semantic Search Agent:** High-speed code locator that queries vector databases to find semantic duplicates or specific system files.
+* **Documentation Agent:** Automatically drafts project modules, API guides, and setup steps tailored to the active folder structures.
 
 ### 2. How the Agents are Called (Backend Implementation)
 
@@ -91,7 +91,7 @@ RepoMind runs a **Coordinated Multi-Agent System** where tasks are processed by 
 
 ---
 
-## ⚡ Production-Grade Smoothness & Reliability
+## Production-Grade Smoothness & Reliability
 
 RepoMind implements rigorous safety, rate-limiting, and state features to deliver a smooth, production-like experience:
 
@@ -116,7 +116,7 @@ If a model fails due to rate limits or region issues, the system catches the err
 
 ---
 
-## 📊 System Workflow Diagram
+## System Workflow Diagram
 
 The sequence flowchart below displays how codebase ingestion, user queries, vector search, and agent orchestration flow through the RepoMind platform:
 
@@ -128,34 +128,34 @@ graph TD
     classDef success fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#ecfdf5;
     classDef warning fill:#78350f,stroke:#fbbf24,stroke-width:2px,color:#fffbeb;
 
-    subgraph UserSpace["💻 User Interface (React / Vite / Tailwind)"]
-        A["👤 User Actions & Prompts"]:::highlight
-        UI["🖥️ React Dashboard & Monaco Code View"]
+    subgraph UserSpace["User Interface (React / Vite / Tailwind)"]
+        A["User Actions & Prompts"]:::highlight
+        UI["React Dashboard & Monaco Code View"]
     end
 
-    subgraph BackendGateway["⚙️ Backend Server (Express App)"]
-        B["🔌 Express Routers & Middleware"]
-        C["🧠 Intent Coordinator Agent"]:::highlight
+    subgraph BackendGateway["Backend Server (Express App)"]
+        B["Express Routers & Middleware"]
+        C["Intent Coordinator Agent"]:::highlight
     end
 
-    subgraph KnowledgeEngine["🧬 AI Knowledge Engine & Datastores"]
-        Parser["📂 Tree-Sitter & Repo Parser"]
-        Mongo["🗄️ MongoDB Atlas (Metadata & Local Index)"]
-        PineconeDB["🌲 Pinecone Vector DB (Embeddings)"]
+    subgraph KnowledgeEngine["AI Knowledge Engine & Datastores"]
+        Parser["Tree-Sitter & Repo Parser"]
+        Mongo["MongoDB Atlas (Metadata & Local Index)"]
+        PineconeDB["Pinecone Vector DB (Embeddings)"]
     end
 
-    subgraph AgentsLayer["🤖 Multi-Agent Orchestration"]
-        MemoryAgent["💾 Code Memory Agent"]
-        DocAgent["📝 Documentation Agent"]
-        ArchAgent["🗺️ Architecture Agent (Mermaid)"]
-        PMAgent["📊 Project Manager Agent"]
-        SearchAgent["🔍 Semantic Search Agent"]
+    subgraph AgentsLayer["Multi-Agent Orchestration"]
+        MemoryAgent["Code Memory Agent"]
+        DocAgent["Documentation Agent"]
+        ArchAgent["Architecture Agent (Mermaid)"]
+        PMAgent["Project Manager Agent"]
+        SearchAgent["Semantic Search Agent"]
     end
 
-    subgraph AIService["⚡ Gemini AI Services"]
-        Embedder["🔢 Gemini Embeddings API"]
-        LLMQueue["🧠 Model Fallback Queue (Gemini 3.5/3.1/2.5)"]:::warning
-        Limiter["⏳ Concurrency Rate-Limiter (12s spacing)"]
+    subgraph AIService["Gemini AI Services"]
+        Embedder["Gemini Embeddings API"]
+        LLMQueue["Model Fallback Queue (Gemini 3.5/3.1/2.5)"]:::warning
+        Limiter["Concurrency Rate-Limiter (12s spacing)"]
     end
 
     %% Workflow Connections %%
@@ -182,7 +182,7 @@ graph TD
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 * **Frontend:** React.js, Vite, TailwindCSS, Framer Motion, Monaco Editor (Code viewer), ReactFlow (Interactive networks), Mermaid.js (Diagrams), Axios.
 * **Backend:** Node.js, Express, MongoDB Atlas, Pinecone DB, GitHub API & OAuth, Tree-sitter.
@@ -190,7 +190,7 @@ graph TD
 
 ---
 
-## 🚀 Getting Started & Local Setup
+## Getting Started & Local Setup
 
 ### Prerequisites
 * **Node.js** (v16.x or higher)
@@ -252,4 +252,4 @@ graph TD
 
 ---
 
-💡 *Developed by Nile & Antigravity IDE team. For queries or architecture details, launch RepoMind and ask: "Explain the codebase routing flow."*
+*Developed by Nile & Antigravity IDE team. For queries or architecture details, launch RepoMind and ask: "Explain the codebase routing flow."*
