@@ -1,6 +1,7 @@
 # Dependency directories
 node_modules/
 jspm_packages/
+phases.md/
 
 # Logs
 logs
