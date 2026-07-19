@@ -7,7 +7,17 @@ const RepositoryContext = createContext(null);
 export function RepositoryProvider({ children }) {
   const [connectedRepos, setConnectedRepos] = useState([]);
   const [activeRepoId, setActiveRepoId] = useState(localStorage.getItem('repomind_active_repo') || '');
-  const [activeRepo, setActiveRepo] = useState(null);
+  const [activeRepo, setActiveRepo] = useState(() => {
+    const cached = localStorage.getItem('repomind_active_repo_details');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        console.error("Failed to parse cached active repo details:", e);
+      }
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(false);
   const [activeRepoLoading, setActiveRepoLoading] = useState(false);
   const pollTimerRef = useRef(null);
@@ -29,22 +39,28 @@ export function RepositoryProvider({ children }) {
   const fetchActiveRepoDetails = useCallback(async (repoId) => {
     if (!repoId) {
       setActiveRepo(null);
+      localStorage.removeItem('repomind_active_repo_details');
       return;
     }
-    setActiveRepoLoading(true);
+    if (!activeRepo || activeRepo._id !== repoId) {
+      setActiveRepoLoading(true);
+    }
     try {
       const { data } = await api.get(`/repositories/${repoId}`);
-      setActiveRepo(data.repository);
+      const repo = data.repository;
+      setActiveRepo(repo);
+      localStorage.setItem('repomind_active_repo_details', JSON.stringify(repo));
     } catch (err) {
       console.error('Failed to load repository details:', err.message);
       // Clear active repo if not found/error
       setActiveRepo(null);
       setActiveRepoId('');
       localStorage.removeItem('repomind_active_repo');
+      localStorage.removeItem('repomind_active_repo_details');
     } finally {
       setActiveRepoLoading(false);
     }
-  }, []);
+  }, [activeRepo]);
 
   // Connect a repo
   const connectRepo = async (githubRepo) => {
@@ -93,6 +109,7 @@ export function RepositoryProvider({ children }) {
       );
       if (activeRepoId === repoId) {
         setActiveRepo(updatedRepo);
+        localStorage.setItem('repomind_active_repo_details', JSON.stringify(updatedRepo));
       }
       return updatedRepo;
     } catch (err) {
@@ -108,6 +125,7 @@ export function RepositoryProvider({ children }) {
       localStorage.setItem('repomind_active_repo', repoId);
     } else {
       localStorage.removeItem('repomind_active_repo');
+      localStorage.removeItem('repomind_active_repo_details');
       setActiveRepo(null);
     }
   };
@@ -127,9 +145,11 @@ export function RepositoryProvider({ children }) {
   // Load details whenever active ID changes
   useEffect(() => {
     if (isAuthenticated && activeRepoId) {
-      fetchActiveRepoDetails(activeRepoId);
+      if (!activeRepo || activeRepo._id !== activeRepoId) {
+        fetchActiveRepoDetails(activeRepoId);
+      }
     }
-  }, [isAuthenticated, activeRepoId, fetchActiveRepoDetails]);
+  }, [isAuthenticated, activeRepoId, activeRepo, fetchActiveRepoDetails]);
 
   // Background polling for repo status (indexing / connected)
   useEffect(() => {

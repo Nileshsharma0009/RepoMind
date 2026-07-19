@@ -38,14 +38,28 @@ export default function Repositories() {
 
   // Fetch repos from GitHub via our backend endpoint
   const fetchGithubRepos = async () => {
-    setGithubLoading(true);
+    const cached = localStorage.getItem('repomind_github_repos');
+    if (cached) {
+      try {
+        setGithubRepos(JSON.parse(cached));
+      } catch (e) {
+        console.error("Failed to parse cached github repos:", e);
+      }
+    } else {
+      setGithubLoading(true);
+    }
+    
     setGithubError('');
     try {
       const { data } = await api.get('/github/repos');
-      setGithubRepos(data.repos || []);
+      const freshRepos = data.repos || [];
+      setGithubRepos(freshRepos);
+      localStorage.setItem('repomind_github_repos', JSON.stringify(freshRepos));
     } catch (err) {
       console.error('Error fetching github repos:', err);
-      setGithubError(err.response?.data?.message || 'Failed to fetch repositories from GitHub.');
+      if (!cached) {
+        setGithubError(err.response?.data?.message || 'Failed to fetch repositories from GitHub.');
+      }
     } finally {
       setGithubLoading(false);
     }

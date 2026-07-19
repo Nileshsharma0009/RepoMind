@@ -88,19 +88,33 @@ export default function Documentation() {
 
   const fetchDocument = async () => {
     if (!activeRepo) return;
-    setLoading(true);
+    
+    const cacheKey = `repomind_doc_${activeRepo._id}_${selectedCategory}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    if (cached) {
+      setContent(cached);
+      setDraftContent(cached);
+    } else {
+      setLoading(true);
+      setContent('');
+      setDraftContent('');
+    }
+    
     setError('');
-    setContent('');
-    setDraftContent('');
     setIsEditing(false);
 
     try {
       const { data } = await api.get(`/repositories/${activeRepo._id}/docs/${selectedCategory}`);
-      setContent(data.content || '');
-      setDraftContent(data.content || '');
+      const freshContent = data.content || '';
+      setContent(freshContent);
+      setDraftContent(freshContent);
+      localStorage.setItem(cacheKey, freshContent);
     } catch (err) {
       console.error('Failed to load documentation:', err);
-      setError(err.response?.data?.message || 'Failed to assemble guide from indexing database.');
+      if (!cached) {
+        setError(err.response?.data?.message || 'Failed to assemble guide from indexing database.');
+      }
     } finally {
       setLoading(false);
     }

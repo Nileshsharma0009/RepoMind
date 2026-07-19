@@ -82,13 +82,19 @@ export default function Chat() {
     };
   }, [isDragging]);
 
-  // Initialize welcome message when repo selection changes
+  // Initialize welcome message or load cached chat when repo selection changes
   useEffect(() => {
     if (activeRepo) {
-      setMessages([
-        {
-          role: 'model',
-          content: `### Welcome to **${activeRepo.name}** AI Assistant!
+      const cachedChat = localStorage.getItem(`repomind_chat_${activeRepo._id}`);
+      if (cachedChat) {
+        try {
+          setMessages(JSON.parse(cachedChat));
+        } catch (e) {
+          console.error("Failed to parse cached chat history:", e);
+          setMessages([
+            {
+              role: 'model',
+              content: `### Welcome to **${activeRepo.name}** AI Assistant!
 I have indexed **${activeRepo.fileCount} files** in this codebase.
 
 Here are a few questions you can ask me:
@@ -98,9 +104,28 @@ Here are a few questions you can ask me:
 - **"Explain how JWT tokens are generated and verified"**
 
 Ask me anything, and click on citations to inspect the source code instantly!`,
-          references: [],
-        },
-      ]);
+              references: [],
+            },
+          ]);
+        }
+      } else {
+        setMessages([
+          {
+            role: 'model',
+            content: `### Welcome to **${activeRepo.name}** AI Assistant!
+I have indexed **${activeRepo.fileCount} files** in this codebase.
+
+Here are a few questions you can ask me:
+- **"Explain the folder structure of this project"**
+- **"Where is the database connection handled?"**
+- **"Show me the authentication middleware flow"**
+- **"Explain how JWT tokens are generated and verified"**
+
+Ask me anything, and click on citations to inspect the source code instantly!`,
+            references: [],
+          },
+        ]);
+      }
       setOpenTabs([]);
       setActiveTab('');
       setHighlightedLine(null);
@@ -108,6 +133,13 @@ Ask me anything, and click on citations to inspect the source code instantly!`,
       setMessages([]);
     }
   }, [activeRepo]);
+
+  // Persist messages changes to localStorage
+  useEffect(() => {
+    if (activeRepo && messages.length > 0) {
+      localStorage.setItem(`repomind_chat_${activeRepo._id}`, JSON.stringify(messages));
+    }
+  }, [messages, activeRepo]);
 
   // Scroll to bottom of chat history on new messages
   useEffect(() => {

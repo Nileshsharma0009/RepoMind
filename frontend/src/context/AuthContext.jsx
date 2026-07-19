@@ -63,6 +63,18 @@ export function AuthProvider({ children }) {
     } catch {
       // Token may already be invalid
     }
+    // Clean up local storage items
+    Object.keys(localStorage).forEach((key) => {
+      if (
+        key.startsWith('repomind_chat_') ||
+        key.startsWith('repomind_doc_') ||
+        key === 'repomind_active_repo' ||
+        key === 'repomind_active_repo_details' ||
+        key === 'repomind_github_repos'
+      ) {
+        localStorage.removeItem(key);
+      }
+    });
     localStorage.removeItem('token');
     setUser(null);
   };
